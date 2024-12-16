@@ -1,129 +1,135 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.core.exceptions import ValidationError
 from rest_framework.authtoken.models import Token    # [Token Model]
 from django.conf import settings
-from django.utils.timezone import now
+from django.db import transaction
+from django.core.validators import RegexValidator
 
-# Create your models here.
-############################################################## [1] Users Profiles ##########################################################################################################################################################################################
+##################################################################################################################
 
-class UserProfile(models.Model):
-    patient = models.ForeignKey(User, on_delete=models.CASCADE)
-    national_id = models.CharField(max_length=25)
-    email = models.EmailField(unique=True)
-    gender = models.CharField(max_length=10, choices=[('Male','Male'),('Femal','Femal')])
-    age = models.PositiveBigIntegerField(null=True, blank=True)
-    choronic_disease = models.TextField(default=None, blank=True)
-    
-    def __str__(self):
-        return str(self.patient.username)
-
-############################################################## [2] Doctors Profile ##########################################################################################################################################################################################
-
-class DoctorsProfileInfo(models.Model):
-    doctor = models.ForeignKey(User, on_delete=models.CASCADE)
-    last_name = models.CharField(max_length=50)
-    specialty = models.CharField(max_length=20, default=None, null=False, blank=False)
-    email = models.EmailField()
-    phone = models.PositiveIntegerField()
-    clinic_address = models.TextField()
-    bio = models.TextField(null=True, blank=True)
-    img = models.ImageField(upload_to='doctors-images/', null=True, blank=True)
-
-    def __str__(self):
-        return f"{self.doctor.first_name.capitalize()} {self.doctor.last_name.capitalize()}"
-    
-############################################################## [3] Doctor Available Booking ##########################################################################################################################################################################################
-
-class DoctorAvailableBooking(models.Model):
-    doctor = models.ForeignKey(DoctorsProfileInfo, on_delete=models.SET_NULL, null=True)
-    date_time = models.DateTimeField(default=now)
-    availability = models.BooleanField(default=True, null=True, blank=True)
-
-    class Meta:
-        verbose_name = 'Booking'
-
-    def __str__(self):
-        return f"{self.doctor} - {self.date_time.strftime('%Y-%m-%d %H:%M')} - {'Available' if self.availability else 'Booked'}"
-    
-############################################################## [4] Appointment Section ##########################################################################################################################################################################################
-
-class Appointment(models.Model):
-    patient = models.ForeignKey(User, on_delete=models.CASCADE)
-    available_booking = models.ForeignKey(DoctorAvailableBooking, on_delete=models.CASCADE, null=True, blank=True)
-    date_time = models.DateTimeField(default=now)
-
-    def clean(self):
-        # Validate if the booking is already unavailable
-        if self.available_booking and not self.available_booking.availability:
-            raise ValidationError("This booking is unavailable.")
+class UserManager(BaseUserManager):
+    def create_user(self, email, full_name=None, password=None, is_active=True, is_staff=False, is_admin=False):
+        if not email:
+            raise ValueError("User must have an email address !")
+        if not password:
+            raise ValueError("Users must have a password !")
+        if not full_name:
+            raise ValueError("Users must have a fullname !")
         
-        # Validate if the same doctor and time slot are already booked
-        if Appointment.objects.filter(
-            available_booking__doctor=self.available_booking.doctor,
-            date_time=self.date_time
-        ).exclude(id=self.id).exists():
-            raise ValidationError("This time slot is already booked by another patient.")
+        user_obj = self.model(
+            email=self.normalize_email(email),
+            full_name = full_name,
+        )
+        user_obj.active = is_active
+        user_obj.staff = is_staff
+        user_obj.admin = is_admin
+        user_obj.set_password(password)
+        user_obj.save(using=self._db)
+        return user_obj
 
-    def save(self, *args, **kwargs):
-        # Call the clean method to validate before saving
-        self.clean()
+    def create_staffuser(self, email, full_name=None, password=None):
+        return self.create_user(email, full_name=full_name, password=password, is_staff=True)
 
-        # Mark the booking as unavailable
-        if self.available_booking:
-            self.available_booking.availability = False
-            self.available_booking.save()
+    def create_superuser(self, email, full_name=None, password=None):
+        return self.create_user(email, full_name=full_name, password=password, is_staff=True, is_admin=True)
 
-        super().save(*args, **kwargs)
+##################################################################################################################
+
+class User(AbstractBaseUser):
+    email = models.EmailField(max_length=255, unique=True)
+    full_name = models.CharField(max_length=255, blank=True, null=True)
+    age = models.PositiveIntegerField(blank=True, null=True)
+    gender = models.CharField(max_length=10, choices=[('M', 'Male'), ('F', 'Female')], blank=True, null=True)
+    chronic_disease = models.TextField(blank=True, null=True)
+    phone_num = models.CharField(
+        max_length=11,
+        blank=True,
+        null=True,
+        validators=[
+            RegexValidator(
+                regex=r'^\d{11}$',
+                message='Phone number must be exactly 11 digits.',
+                code='invalid_phone_num'
+            )
+        ]
+    )
+    active = models.BooleanField(default=True)
+    staff = models.BooleanField(default=False)
+    admin = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = []
+
+    objects = UserManager()
 
     def __str__(self):
-        return f"Appointment booked for {self.patient.username} on {self.date_time.strftime('%Y-%m-%d %H:%M')}"
+        return self.email
 
-############################################################## [5] Activity Feed ##########################################################################################################################################################################################
+    def has_perm(self, perm, obj=None):
+        return True
 
-class ActivityFeed(models.Model):
-    doctor = models.ForeignKey(DoctorsProfileInfo, on_delete=models.CASCADE, null=True, blank=False)
-    msg = models.TextField(blank=False, null=False, default=None)
-    updated = models.DateTimeField(auto_now=True)
-    complete = models.BooleanField(default=False)
-    
+    def has_module_perms(self, app_label):
+        return True
+
+    @property
+    def is_active(self):
+        return self.active
+
+    @property
+    def is_staff(self):
+        return self.staff
+
+    @property
+    def is_admin(self):
+        return self.admin
+
+##################################################################################################################
+class Profile(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    age = models.PositiveIntegerField(blank=True, null=True)
+    gender = models.CharField(max_length=10, choices=[('M', 'Male'), ('F', 'Female')], blank=True, null=True)
+    chronic_disease = models.TextField(blank=True, null=True)
+    phone_num = models.CharField(
+        max_length=11,
+        blank=True,
+        null=True,
+        validators=[
+            RegexValidator(
+                regex=r'^\d{11}$',
+                message='Phone number must be exactly 11 digits.',
+                code='invalid_phone_num'
+            )
+        ]
+    )
+
     def __str__(self):
-        return str(self.doctor)
-    
-################################################################################################################################################################################################################################################################################################################################
-# [Signals]
+        return str(self.user)
+############################################################# [Signals] #############################################################
+# Signal to sync phone_num along with other fields
+@receiver(post_save, sender=User)
+def create_or_update_user_profile(sender, instance, created, **kwargs):
+    if created:
+        transaction.on_commit(lambda: Profile.objects.create(
+            user=instance,
+            age=instance.age,
+            gender=instance.gender,
+            chronic_disease=instance.chronic_disease,
+            phone_num=instance.phone_num
+        ))
+    else:
+        Profile.objects.filter(user=instance).update(
+            age=instance.age,
+            gender=instance.gender,
+            chronic_disease=instance.chronic_disease,
+            phone_num=instance.phone_num
+        )
 
-@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+# Synchronize Tokens
+@receiver(post_save, sender=User)
 def Token_Create_Automation(sender, instance, created, **kwargs):
     if created:
         Token.objects.create(user=instance)
-        
-################################################################################################################################################################################################################################################################################################################################
-
-class User(models.Model):
-    name = models.CharField(max_length=100)
-    national_id = models.CharField(max_length=14, unique=True)
-    def __str__(self):
-        return self.name
-    
-#######################################################################################################################################################################################################################################################################################################
-
-class PreviousHistory(models.Model):
-    sender = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="messages")
-    message = models.TextField()
-    timestamp = models.DateTimeField(default=now)
-    def __str__(self):
-        return f"{self.sender.name if self.sender else 'Anonymous'}: {self.message[:20]}"
-
-#######################################################################################################################################################################################################################################################################################################
-
-class UploadedPhoto(models.Model):
-    uploader = models.ForeignKey(User, on_delete=models.SET_NULL, null=True,)
-    photo = models.ImageField(upload_to="uploaded_photos/")
-    timestamp = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Photo by {self.uploader.username if self.uploader else 'Anonymous'}"
