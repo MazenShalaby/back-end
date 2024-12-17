@@ -5,37 +5,33 @@ from django.contrib.auth.forms import ReadOnlyPasswordHashField
 User = get_user_model()
 
 class RegisterForm(forms.ModelForm):
-    """
-    The default 
-
-    """
 
     password = forms.CharField(widget=forms.PasswordInput)
     password_2 = forms.CharField(label='Confirm Password', widget=forms.PasswordInput)
 
     class Meta:
         model = User
-        fields = ['email']
-
+        fields = ['email',]
+        
+    # Verify email is available.
     def clean_email(self):
-        '''
-        Verify email is available.
-        '''
+
         email = self.cleaned_data.get('email')
         qs = User.objects.filter(email=email)
         if qs.exists():
             raise forms.ValidationError("email is taken")
+        
         return email
-
+    
+    # Verify both passwords match.
     def clean(self):
-        '''
-        Verify both passwords match.
-        '''
+        
         cleaned_data = super().clean()
         password = cleaned_data.get("password")
         password_2 = cleaned_data.get("password_2")
         if password is not None and password != password_2:
             self.add_error("password_2", "Your passwords must match")
+            
         return cleaned_data
 
 ##################################################################################################################
@@ -58,7 +54,7 @@ class UserAdminCreationForm(forms.ModelForm):
         return cleaned_data
 
     def save(self, commit=True):
-        user = super().save(commit=False)
+        user = super(UserAdminCreationForm, self).save(commit=False)
         user.set_password(self.cleaned_data['password1'])
         if commit:
             user.save()
@@ -75,14 +71,10 @@ class UserAdminChangeForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ['email',  'full_name', 'password', 'active', 'admin']
+        fields = ['email', 'password', 'active', 'admin', 'first_name', 'last_name']
 
     def clean_password(self):
         # Regardless of what the user provides, return the initial value.
         # This is done here, rather than on the field, because the
         # field does not have access to the initial value
         return self.initial["password"]
-
-
-
-

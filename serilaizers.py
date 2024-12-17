@@ -1,12 +1,7 @@
 from rest_framework import serializers
-from . models import UserProfile, DoctorsProfileInfo, Appointment, DoctorAvailableBooking, ActivityFeed
+from . models import DoctorsProfileInfo, Appointment, DoctorAvailableBooking, ActivityFeed
 
 
-class UserProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserProfile
-        fields = "__all__"          
-    
 ########################################################################################################################################################################
 
 class DoctorInfoSerializer(serializers.ModelSerializer):
@@ -41,7 +36,7 @@ class ActivityFeedSerializer(serializers.ModelSerializer):
         
         
 ################################################################################################################################################################        
-from .models import PreviousHistory,User,UploadedPhoto
+from .models import PreviousHistory, UserLogin, UploadedPhoto
 
 class LoginSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=100)
