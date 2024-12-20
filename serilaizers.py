@@ -1,7 +1,18 @@
 from rest_framework import serializers
-from . models import DoctorsProfileInfo, Appointment, DoctorAvailableBooking, ActivityFeed
+from . models import User, Profile, DoctorsProfileInfo, Appointment, Booking, ActivityFeed
 
 
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = '__all__'
+########################################################################################################################################################################
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = "__all__"
 ########################################################################################################################################################################
 
 class DoctorInfoSerializer(serializers.ModelSerializer):
@@ -22,9 +33,9 @@ class AppointmentSerializer(serializers.ModelSerializer):
         
 ################################################################################################################################################################
 
-class DoctorAVailableBookingSerializer(serializers.ModelSerializer):
+class BookingSerializer(serializers.ModelSerializer):
     class Meta:
-        model = DoctorAvailableBooking
+        model = Booking
         fields = '__all__'
         
 ################################################################################################################################################################

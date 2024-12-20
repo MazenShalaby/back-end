@@ -177,9 +177,9 @@ def create_or_update_user_profile(sender, instance, created, **kwargs):
             instance.profile.chronic_disease = instance.chronic_disease
             instance.profile.save()
             
-############################################################## [3] Doctor Available Booking ##########################################################################################################################################################################################
+############################################################## [3] Booking ##########################################################################################################################################################################################
 
-class DoctorAvailableBooking(models.Model):
+class Booking(models.Model):
     doctor = models.ForeignKey(DoctorsProfileInfo, on_delete=models.SET_NULL, null=True)
     date_time = models.DateTimeField(default=timezone.now)
     availability = models.BooleanField(default=True, null=True, blank=True)
@@ -194,7 +194,7 @@ class DoctorAvailableBooking(models.Model):
 
 class Appointment(models.Model):
     patient = models.ForeignKey(User, on_delete=models.CASCADE)
-    available_booking = models.ForeignKey(DoctorAvailableBooking, on_delete=models.CASCADE, null=True, blank=True)
+    available_booking = models.ForeignKey(Booking, on_delete=models.CASCADE, null=True, blank=True)
     date_time = models.DateTimeField(default=timezone.now)
 
     def clean(self):
@@ -222,6 +222,11 @@ class Appointment(models.Model):
 
     def __str__(self):
         return f"Appointment booked for {self.patient} on {self.date_time.strftime('%Y-%m-%d %H:%M')}"
+    
+################################################################################################################################################################################################################################################################################################################################
+
+class DoctorAvailability(models.Model):
+    pass 
 
 ############################################################## [5] Activity Feed ##########################################################################################################################################################################################
 
