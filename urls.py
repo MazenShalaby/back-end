@@ -16,9 +16,9 @@ urlpatterns = [
         
     # [4] Appointements
     path('appointments-list/', views.appointements_list, name='appointments-list'),
-    path('appointments-list/<int:patient_id>/', views.appointment_details, name='appointment-details'),
+    path('appointments-list/<int:doctor_id>/', views.appointment_details, name='appointment-details'),
     
-    # [5] Bookings
+    # [5] DoctorAvailability
     path('booking-list/', views.bookings_list, name='bookings-list'),
     path('booking-list/<int:doctor_id>/', views.booking_details, name='booking-details'),
     

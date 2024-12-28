@@ -1,5 +1,5 @@
-from .models import User, Profile, DoctorsProfileInfo, Appointment, Booking, ActivityFeed, UserLogin, PreviousHistory, UploadedPhoto
-from .serilaizers import  UserSerializer, ProfileSerializer, DoctorInfoSerializer, AppointmentSerializer, BookingSerializer, ActivityFeedSerializer, LoginSerializer , PreviousHistorySerializer, UploadedPhotoSerializer
+from .models import User, Profile, DoctorsProfileInfo, Appointment, DoctorAvailability, ActivityFeed, UserLogin, PreviousHistory, UploadedPhoto
+from .serilaizers import  UserSerializer, ProfileSerializer, DoctorInfoSerializer, AppointmentSerializer, DoctorAvailabilitySerializer, ActivityFeedSerializer, LoginSerializer , PreviousHistorySerializer, UploadedPhotoSerializer
 
 from rest_framework.authentication import BasicAuthentication
 from rest_framework.permissions import IsAdminUser
@@ -18,24 +18,33 @@ from rest_framework import status
 @authentication_classes([BasicAuthentication])
 @permission_classes([IsAdminUser])
 def users_list(request):
-    user = User.objects.all()
-    
     if request.method == 'GET':
-        serializer = UserSerializer(user, many=True)
+        users = User.objects.all()
+        serializer = UserSerializer(users, many=True)
         return Response(serializer.data)
     
     elif request.method == 'POST':
-        serializer = UserSerializer(data = request.data)
+        serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return Response({"message": "A new user has been added successfully :) "}, status= status.HTTP_201_CREATED)
+            user = serializer.save()
+            # Optionally retrieve the full instance from the database (if necessary)
+            retrieved_user = User.objects.get(pk=user.pk)
+            retrieved_serializer = UserSerializer(retrieved_user)
+            return Response(retrieved_serializer.data, status=status.HTTP_201_CREATED)
         
-    return Response({"message": "Something went wrong to delete :( "}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({"message": "Invalid request method"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 @api_view(['GET', 'PUT', 'DELETE'])
 @authentication_classes([BasicAuthentication])
 @permission_classes([IsAdminUser])
 def user_details(request, pk):
+    try:
+        # Fetch the profile based on the user_id
+        profile = User.objects.get(id=pk)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
     
     user = User.objects.get(id=pk)
     if request.method == 'GET':
@@ -144,6 +153,8 @@ def doctor_details(request, user_id):
         return Response({"message": "Doctor profile deleted successfully!"})
     
     
+############################################################## [*] Doctor Availability  ##############################################################
+
 ############################################################## [4] Appointments ##############################################################
 
 @api_view(['GET', 'POST'])
@@ -168,10 +179,10 @@ def appointements_list(request):
 @api_view(['GET', 'PUT', 'DELETE'])
 @authentication_classes([BasicAuthentication])
 @permission_classes([IsAdminUser])
-def appointment_details(request, patient_id):
+def appointment_details(request, doctor_id):
     try:
         # Fetch the appointment based on the patient foreign key
-        appointment = Appointment.objects.get(patient_id=patient_id)
+        appointment = Appointment.objects.get(doctor_id=doctor_id)
     except Appointment.DoesNotExist:
         return Response({"error": "Appointment not found for the given patient ID"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -193,7 +204,7 @@ def appointment_details(request, patient_id):
         appointment.delete()
         return Response({"message": "Appointment deleted successfully!"}, status=status.HTTP_204_NO_CONTENT)
 
-############################################################## [5] Booking ##############################################################
+############################################################## [5] Doctor Availability ##############################################################
     
 @api_view(['GET', 'POST'])
 @authentication_classes([BasicAuthentication])
@@ -201,12 +212,12 @@ def appointment_details(request, patient_id):
 def bookings_list(request):
     
     if request.method == 'GET':
-        appointment = Booking.objects.all()
-        serializer = BookingSerializer(appointment, many=True)
+        appointment = DoctorAvailability.objects.all()
+        serializer = DoctorAvailabilitySerializer(appointment, many=True)
         return Response(serializer.data)
     
     elif request.method == 'POST':
-        serializer = BookingSerializer(data = request.data)
+        serializer = DoctorAvailabilitySerializer(data = request.data)
         if serializer.is_valid():
             serializer.save()
             return Response({"message": "Booking has been added successfully :) "}, status= status.HTTP_201_CREATED)
@@ -249,7 +260,7 @@ def bookings_list(request):
 def booking_details(request, doctor_id):
     try:
         # Fetch all Activity Feeds associated with the given doctor
-        booking = Booking.objects.filter(doctor_id=doctor_id)
+        booking = DoctorAvailability.objects.filter(doctor_id=doctor_id)
         if not booking.exists():
             return Response({"error": "No Booking found for the given doctor ID"}, status=status.HTTP_404_NOT_FOUND)
     except ValueError:
@@ -257,7 +268,7 @@ def booking_details(request, doctor_id):
 
     if request.method == "GET":
         # Retrieve all Activity Feeds for the doctor
-        serializer = BookingSerializer(booking, many=True)
+        serializer = DoctorAvailabilitySerializer(booking, many=True)
         return Response(serializer.data)
 
     elif request.method == "PUT":

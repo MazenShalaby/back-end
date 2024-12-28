@@ -10,24 +10,22 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 ##################################################################################################################
-
 class UserManager(BaseUserManager):
     def create_user(self, email, full_name=None, password=None, is_active=True, is_staff=False, is_admin=False):
         if not email:
-            raise ValueError("User must have an email address !")
+            raise ValueError("User must have an email address!")
         if not password:
-            raise ValueError("Users must have a password !")
-        # if not full_name:
-        #     raise ValueError("Users must have a fullname !")
+            raise ValueError("Users must have a password!")
         
         user_obj = self.model(
             email=self.normalize_email(email),
-            full_name = full_name,
+            full_name=full_name,
         )
         user_obj.active = is_active
         user_obj.staff = is_staff
         user_obj.admin = is_admin
         user_obj.set_password(password)
+        user_obj.full_clean()  # Validate fields before saving
         user_obj.save(using=self._db)
         return user_obj
 
@@ -37,7 +35,6 @@ class UserManager(BaseUserManager):
     def create_superuser(self, email, full_name=None, password=None):
         return self.create_user(email, full_name=full_name, password=password, is_staff=True, is_admin=True)
 
-##################################################################################################################
 
 class User(AbstractBaseUser):
     email = models.EmailField(max_length=255, unique=True)
@@ -49,10 +46,11 @@ class User(AbstractBaseUser):
     chronic_disease = models.TextField(blank=True, null=True)
     phone = models.CharField(
         max_length=11,
+        unique=True,
         validators=[RegexValidator(regex=r'^\d{11}$', message='Phone number must be 11 digits')],
         blank=True,
-        null=True
-    )  # New phone field with validation
+        null=True,
+    )
 
     active = models.BooleanField(default=True)
     staff = models.BooleanField(default=False)
@@ -85,6 +83,13 @@ class User(AbstractBaseUser):
     @property
     def is_admin(self):
         return self.admin
+
+    def clean(self):
+        """
+        [Custom validation to ensure the phone number is unique]
+        """
+        if self.phone and User.objects.exclude(pk=self.pk).filter(phone=self.phone).exists():
+            raise ValidationError({"phone": "This phone number is already in use."})
 ##################################################################################################################
 
 class Profile(models.Model):
@@ -113,6 +118,7 @@ class DoctorsProfileInfo(models.Model):
     specialty = models.CharField(max_length=100)
     phone = models.CharField(
         max_length=11,
+        unique=True,  # Enforces uniqueness at the database level
         validators=[
             RegexValidator(
                 regex=r'^\d{11}$',
@@ -124,9 +130,23 @@ class DoctorsProfileInfo(models.Model):
     clinic_address = models.TextField(blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
     img = models.ImageField(upload_to='doctor_images/', blank=True, null=True)
-    
+
     class Meta:
         verbose_name = 'Doctors Profile'
+
+    def clean(self):
+        """
+        Custom validation to ensure the phone number is unique.
+        """
+        if DoctorsProfileInfo.objects.exclude(pk=self.pk).filter(phone=self.phone).exists():
+            raise ValidationError({"phone": "This phone number is already in use by another doctor."})
+
+    def save(self, *args, **kwargs):
+        """
+        Overrides save to ensure `clean` is called before saving.
+        """
+        self.full_clean()  # Runs validations including `clean`
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.doc_first_name} {self.doc_last_name}"
@@ -177,25 +197,62 @@ def create_or_update_user_profile(sender, instance, created, **kwargs):
             instance.profile.chronic_disease = instance.chronic_disease
             instance.profile.save()
             
-############################################################## [3] Booking ##########################################################################################################################################################################################
+############################################################## [3] Doctor Availability ##########################################################################################################################################################################################
 
-class Booking(models.Model):
-    doctor = models.ForeignKey(DoctorsProfileInfo, on_delete=models.SET_NULL, null=True)
-    date_time = models.DateTimeField(default=timezone.now)
-    availability = models.BooleanField(default=True, null=True, blank=True)
-
+class DoctorAvailability(models.Model):
+    doctor = models.ForeignKey(DoctorsProfileInfo, on_delete=models.CASCADE)
+    day = models.CharField(max_length=10, choices=[
+        ('Sun', 'Sunday'),
+        ('Mon', 'Monday'),
+        ('Tue', 'Tuesday'),
+        ('Wed', 'Wednesday'),
+        ('Thu', 'Thursday'),
+        ('Fri', 'Friday'),
+        ('Sat', 'Saturday'),
+    ])
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    availability = models.BooleanField(default=True)
+    
     class Meta:
-        verbose_name = 'Booking'
+        verbose_name = 'Doctor Availability'
+    
+
 
     def __str__(self):
-        return f"{self.doctor} - {self.date_time.strftime('%Y-%m-%d %H:%M')} - {'Available' if self.availability else 'Booked'}"
+        return f"{self.doctor} - {self.day} - {self.start_time.strftime('%H:%M')} to {self.end_time.strftime('%H:%M')}"
+
+    def clean(self):
+        """
+        Custom validation to ensure the start time is before the end time.
+        """
+        if self.start_time >= self.end_time:
+            raise ValidationError("The start time must be before the end time.")
+        
+        # Validate if the same doctor is already available on the same day
+        if DoctorAvailability.objects.filter(
+            doctor=self.doctor,
+            day=self.day
+        ).exclude(id=self.id).exists():
+            raise ValidationError("This doctor is already available on the same day.")
+
+    def save(self, *args, **kwargs):
+        """
+        Overrides save to ensure `clean` is called before saving.
+        """
+        self.full_clean()  # Runs validations including `clean`
+        super().save(*args, **kwargs)
+        
+
     
 ############################################################## [4] Appointment Section ##########################################################################################################################################################################################
 
 class Appointment(models.Model):
     patient = models.ForeignKey(User, on_delete=models.CASCADE)
-    available_booking = models.ForeignKey(Booking, on_delete=models.CASCADE, null=True, blank=True)
+    available_booking = models.ForeignKey(DoctorAvailability, on_delete=models.CASCADE, null=True, blank=True)
     date_time = models.DateTimeField(default=timezone.now)
+    doctor = models.OneToOneField(DoctorsProfileInfo, default=None, on_delete=models.CASCADE)
+    availability = models.BooleanField(default=True, null=True, blank=True)
 
     def clean(self):
         # Validate if the booking is already unavailable
@@ -214,19 +271,25 @@ class Appointment(models.Model):
         self.clean()
 
         # Mark the booking as unavailable
-        if self.available_booking:
-            self.available_booking.availability = False
+        if self.available_booking and self.available_booking.availability:
+            self.available_booking.availability = False  # Mark as unavailable once the appointment is booked
             self.available_booking.save()
 
         super().save(*args, **kwargs)
 
+    def delete(self, *args, **kwargs):
+        """
+        Override the delete method to set the availability back to True when an appointment is canceled.
+        """
+        if self.available_booking:
+            self.available_booking.availability = True  # Make the time slot available again
+            self.available_booking.save()
+        
+        super().delete(*args, **kwargs)
+
     def __str__(self):
         return f"Appointment booked for {self.patient} on {self.date_time.strftime('%Y-%m-%d %H:%M')}"
-    
-################################################################################################################################################################################################################################################################################################################################
 
-class DoctorAvailability(models.Model):
-    pass 
 
 ############################################################## [5] Activity Feed ##########################################################################################################################################################################################
 
@@ -242,19 +305,38 @@ class ActivityFeed(models.Model):
 ################################################################################################################################################################################################################################################################################################################################
 
 class UserLogin(models.Model):
-    name = models.CharField(max_length=100)
-    national_id = models.CharField(max_length=14, unique=True)
+    email = models.OneToOneField(User, on_delete=models.CASCADE)
+    password = models.CharField(max_length=14, unique=True)
     def __str__(self):
-        return self.name
+        return str(self.email).split('@')[0]
+
     
 #######################################################################################################################################################################################################################################################################################################
 
 class PreviousHistory(models.Model):
-    sender = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="messages")
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="messages"
+    )
     message = models.TextField()
-    timestamp = models.DateTimeField(default=timezone.now)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
     def __str__(self):
-        return f"{self.sender.name if self.sender else 'Anonymous'}: {self.message[:20]}"
+        return f"{self.sender.email if self.sender else 'Anonymous'}: {self.message[:20]}"
+
+    def clean(self):
+        """
+        Custom validation to ensure that the sender is an active staff member (doctor).
+        """
+        if self.sender:  # Check if the sender is not null
+            if not (self.sender.staff and self.sender.active):
+                raise ValidationError("The sender must be an active staff member (doctor).")
+
+    class Meta:
+        verbose_name_plural = "Previous Histories"
 
 #######################################################################################################################################################################################################################################################################################################
 

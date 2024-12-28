@@ -1,6 +1,5 @@
 from rest_framework import serializers
-from . models import User, Profile, DoctorsProfileInfo, Appointment, Booking, ActivityFeed
-
+from . models import User, Profile, DoctorsProfileInfo, Appointment, DoctorAvailability, ActivityFeed, PreviousHistory, UserLogin, UploadedPhoto
 
 
 
@@ -8,11 +7,14 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = '__all__'
+        
 ########################################################################################################################################################################
+
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
         fields = "__all__"
+        
 ########################################################################################################################################################################
 
 class DoctorInfoSerializer(serializers.ModelSerializer):
@@ -33,9 +35,9 @@ class AppointmentSerializer(serializers.ModelSerializer):
         
 ################################################################################################################################################################
 
-class BookingSerializer(serializers.ModelSerializer):
+class DoctorAvailabilitySerializer(serializers.ModelSerializer):
     class Meta:
-        model = Booking
+        model = DoctorAvailability
         fields = '__all__'
         
 ################################################################################################################################################################
@@ -45,14 +47,12 @@ class ActivityFeedSerializer(serializers.ModelSerializer):
         model = ActivityFeed
         fields = '__all__'
         
-        
 ################################################################################################################################################################        
-from .models import PreviousHistory, UserLogin, UploadedPhoto
 
-class LoginSerializer(serializers.Serializer):
-    name = serializers.CharField(max_length=100)
-    national_id = serializers.CharField(max_length=14)
-
+class LoginSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserLogin
+        fields = '__all__'
 
 ###############################################################################
 

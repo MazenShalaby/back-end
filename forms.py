@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import ReadOnlyPasswordHashField
 
 User = get_user_model()
+################################################################ [Register Form] ######################################################################
 
 class RegisterForm(forms.ModelForm):
 
@@ -34,7 +35,7 @@ class RegisterForm(forms.ModelForm):
             
         return cleaned_data
 
-##################################################################################################################
+################################################################ [Creation Form] ######################################################################
 
 class UserAdminCreationForm(forms.ModelForm):
     password1 = forms.CharField(label='Password', widget=forms.PasswordInput)
@@ -60,7 +61,7 @@ class UserAdminCreationForm(forms.ModelForm):
             user.save()
         return user
     
-##################################################################################################################
+################################################################ [Change Form] ######################################################################
 
 class UserAdminChangeForm(forms.ModelForm):
     """A form for updating users. Includes all the fields on
@@ -78,3 +79,4 @@ class UserAdminChangeForm(forms.ModelForm):
         # This is done here, rather than on the field, because the
         # field does not have access to the initial value
         return self.initial["password"]
+    
