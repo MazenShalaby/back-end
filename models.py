@@ -129,7 +129,7 @@ class DoctorsProfileInfo(models.Model):
     )
     clinic_address = models.TextField(blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
-    img = models.ImageField(upload_to='doctor_images/', blank=True, null=True)
+    img = models.ImageField(upload_to='doc-imgs/', blank=True, null=True)
 
     class Meta:
         verbose_name = 'Doctors Profile'
@@ -201,96 +201,104 @@ def create_or_update_user_profile(sender, instance, created, **kwargs):
 
 class DoctorAvailability(models.Model):
     doctor = models.ForeignKey(DoctorsProfileInfo, on_delete=models.CASCADE)
-    day = models.CharField(max_length=10, choices=[
-        ('Sun', 'Sunday'),
-        ('Mon', 'Monday'),
-        ('Tue', 'Tuesday'),
-        ('Wed', 'Wednesday'),
-        ('Thu', 'Thursday'),
-        ('Fri', 'Friday'),
-        ('Sat', 'Saturday'),
-    ])
+    day = models.CharField(
+        max_length=10,
+        choices=[
+            ('Sun', 'Sunday'),
+            ('Mon', 'Monday'),
+            ('Tue', 'Tuesday'),
+            ('Wed', 'Wednesday'),
+            ('Thu', 'Thursday'),
+            ('Fri', 'Friday'),
+            ('Sat', 'Saturday'),
+        ]
+    )
     start_time = models.TimeField()
     end_time = models.TimeField()
     availability = models.BooleanField(default=True)
-    
+
     class Meta:
         verbose_name = 'Doctor Availability'
-    
-
 
     def __str__(self):
-        return f"{self.doctor} - {self.day} - {self.start_time.strftime('%H:%M')} to {self.end_time.strftime('%H:%M')}"
+        return f"{self.doctor} - {self.day} ({self.start_time.strftime('%H:%M')} to {self.end_time.strftime('%H:%M')})"
 
     def clean(self):
         """
-        Custom validation to ensure the start time is before the end time.
+        Custom validation to ensure the start time is before the end time and no overlap exists.
         """
         if self.start_time >= self.end_time:
             raise ValidationError("The start time must be before the end time.")
         
-        # Validate if the same doctor is already available on the same day
-        if DoctorAvailability.objects.filter(
+        # Validate overlapping slots for the same doctor and day
+        overlapping_slots = DoctorAvailability.objects.filter(
             doctor=self.doctor,
-            day=self.day
-        ).exclude(id=self.id).exists():
-            raise ValidationError("This doctor is already available on the same day.")
+            day=self.day,
+            start_time__lt=self.end_time,
+            end_time__gt=self.start_time
+        ).exclude(id=self.id)
+        if overlapping_slots.exists():
+            raise ValidationError("This time slot overlaps with another availability for this doctor.")
 
     def save(self, *args, **kwargs):
-        """
-        Overrides save to ensure `clean` is called before saving.
-        """
-        self.full_clean()  # Runs validations including `clean`
+        self.full_clean()
         super().save(*args, **kwargs)
-        
-
-    
-############################################################## [4] Appointment Section ##########################################################################################################################################################################################
+############################################################## [4] Booking Appointment Section ##########################################################################################################################################################################################
 
 class Appointment(models.Model):
     patient = models.ForeignKey(User, on_delete=models.CASCADE)
     available_booking = models.ForeignKey(DoctorAvailability, on_delete=models.CASCADE, null=True, blank=True)
-    date_time = models.DateTimeField(default=timezone.now)
-    doctor = models.OneToOneField(DoctorsProfileInfo, default=None, on_delete=models.CASCADE)
-    availability = models.BooleanField(default=True, null=True, blank=True)
+    date_time = models.DateTimeField()
+    doctor = models.ForeignKey(DoctorsProfileInfo, on_delete=models.CASCADE)
+
+    class Meta:
+        verbose_name = 'Booking Appointment'
 
     def clean(self):
-        # Validate if the booking is already unavailable
-        if self.available_booking and not self.available_booking.availability:
-            raise ValidationError("This booking is unavailable.")
-        
-        # Validate if the same doctor and time slot are already booked
+        """
+        Ensure the appointment time falls within available hours and isn't double-booked.
+        """
+        if not self.available_booking:
+            raise ValidationError("You must select an available booking.")
+
+        availability = self.available_booking
+
+        # Validate time within available hours
+        if not (availability.start_time <= self.date_time.time() < availability.end_time):
+            raise ValidationError(
+                f"Appointment time must be between {availability.start_time.strftime('%H:%M')} "
+                f"and {availability.end_time.strftime('%H:%M')} on {availability.day}."
+            )
+
+        # Check for double booking
         if Appointment.objects.filter(
-            available_booking__doctor=self.available_booking.doctor,
+            available_booking=availability,
             date_time=self.date_time
         ).exclude(id=self.id).exists():
-            raise ValidationError("This time slot is already booked by another patient.")
+            raise ValidationError("This time slot is already booked.")
 
     def save(self, *args, **kwargs):
-        # Call the clean method to validate before saving
         self.clean()
 
-        # Mark the booking as unavailable
-        if self.available_booking and self.available_booking.availability:
-            self.available_booking.availability = False  # Mark as unavailable once the appointment is booked
+        # Update availability if the slot is booked
+        if self.available_booking.availability:
+            self.available_booking.availability = False
             self.available_booking.save()
 
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
         """
-        Override the delete method to set the availability back to True when an appointment is canceled.
+        Override delete to restore availability when an appointment is canceled.
         """
         if self.available_booking:
-            self.available_booking.availability = True  # Make the time slot available again
+            self.available_booking.availability = True
             self.available_booking.save()
         
         super().delete(*args, **kwargs)
 
     def __str__(self):
-        return f"Appointment booked for {self.patient} on {self.date_time.strftime('%Y-%m-%d %H:%M')}"
-
-
+        return f"Appointment for {self.patient} with Dr. {self.doctor} on {self.date_time.strftime('%Y-%m-%d %H:%M')}"
 ############################################################## [5] Activity Feed ##########################################################################################################################################################################################
 
 class ActivityFeed(models.Model):
@@ -298,6 +306,9 @@ class ActivityFeed(models.Model):
     msg = models.TextField(blank=False, null=False, default=None)
     updated = models.DateTimeField(auto_now=True)
     complete = models.BooleanField(default=False)
+    
+    class Meta:
+        verbose_name = 'Activity Feed'
     
     def __str__(self):
         return str(self.doctor)
@@ -307,6 +318,10 @@ class ActivityFeed(models.Model):
 class UserLogin(models.Model):
     email = models.OneToOneField(User, on_delete=models.CASCADE)
     password = models.CharField(max_length=14, unique=True)
+    
+    class Meta:
+        verbose_name = 'User Login'
+        
     def __str__(self):
         return str(self.email).split('@')[0]
 
@@ -344,6 +359,9 @@ class UploadedPhoto(models.Model):
     uploader = models.ForeignKey(User, on_delete=models.SET_NULL, null=True,)
     photo = models.ImageField(upload_to="uploaded_photos/")
     timestamp = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name = 'Uploaded Photo'
 
     def __str__(self):
         return f"Photo by {self.uploader.username if self.uploader else 'Anonymous'}"
