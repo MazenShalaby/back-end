@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from . models import User, Profile, DoctorsProfileInfo, Appointment, DoctorAvailability, ActivityFeed, PreviousHistory, UserLogin, UploadedPhoto
+from . models import (User, Profile, DoctorsProfileInfo, Appointment, DoctorAvailability, PreviousHistory, UserLogin, UploadedPhoto, Alarm)
 
 
 
@@ -7,6 +7,28 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = '__all__'
+
+    def create(self, validated_data):
+        """
+        Hash the password before saving the user instance.
+        """
+        password = validated_data.pop('password', None)  # Extract the raw password
+        user = super().create(validated_data)  # Create the user without the password initially
+        if password:
+            user.set_password(password)  # Hash the password
+            user.save()  # Save the user instance with the hashed password
+        return user
+
+    def update(self, instance, validated_data):
+        """
+        Hash the password if it is updated.
+        """
+        password = validated_data.pop('password', None)  # Extract the raw password
+        instance = super().update(instance, validated_data)  # Update other fields
+        if password:
+            instance.set_password(password)  # Hash the password
+            instance.save()  # Save the user instance with the hashed password
+        return instance
         
 ########################################################################################################################################################################
 
@@ -40,14 +62,7 @@ class DoctorAvailabilitySerializer(serializers.ModelSerializer):
         model = DoctorAvailability
         fields = '__all__'
         
-################################################################################################################################################################
-
-class ActivityFeedSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ActivityFeed
-        fields = '__all__'
-        
-################################################################################################################################################################        
+######################################################################### [Badr's Serializers] #######################################################################################        
 
 class LoginSerializer(serializers.ModelSerializer):
     class Meta:
@@ -57,14 +72,9 @@ class LoginSerializer(serializers.ModelSerializer):
 ###############################################################################
 
 class PreviousHistorySerializer(serializers.ModelSerializer):
-    sender_name = serializers.SerializerMethodField()
     class Meta:
         model = PreviousHistory
-        fields = ['id', 'sender', 'sender_name', 'message', 'timestamp']
-    def get_sender_name(self, obj):
-        if obj.sender:
-            return obj.sender.name  
-        return "Anonymous"
+        fields = '__all__'
 
 ###############################################################################
 
@@ -72,3 +82,10 @@ class UploadedPhotoSerializer(serializers.ModelSerializer):
     class Meta:
         model = UploadedPhoto
         fields = ['id', 'uploader', 'photo', 'timestamp']
+        
+###############################################################################
+
+class AlarmSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Alarm
+        fields = '__all__'

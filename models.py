@@ -1,14 +1,9 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-from rest_framework.authtoken.models import Token    # [Token Model]
 from django.conf import settings
-from django.db import transaction
 from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
-from django.utils import timezone
-
+from django.contrib.auth import authenticate
 ##################################################################################################################
 class UserManager(BaseUserManager):
     def create_user(self, email, full_name=None, password=None, is_active=True, is_staff=False, is_admin=False):
@@ -151,52 +146,6 @@ class DoctorsProfileInfo(models.Model):
     def __str__(self):
         return f"{self.doc_first_name} {self.doc_last_name}"
     
-##################################################################################################################
-# [Signals]
-
-@receiver(post_save, sender=User)
-def create_or_update_user_profile(sender, instance, created, **kwargs):
-    """
-    Creates or updates the Profile instance linked to the User.
-    """
-    def create_profile():
-        Profile.objects.update_or_create(
-            user=instance,
-            defaults={
-                'age': instance.age,
-                'gender': instance.gender,
-                'chronic_disease': instance.chronic_disease,
-                'phone': instance.phone,
-            }
-        )
-    # Ensure this is done only after the transaction has been committed
-    if created:
-        transaction.on_commit(create_profile)
-    else:
-        create_profile()
-        
-@receiver(post_save, sender=User)
-def Token_Create_Automation(sender, instance, created, **kwargs):
-    if created:
-        Token.objects.create(user=instance)
-
-
-
-def create_or_update_user_profile(sender, instance, created, **kwargs):
-    # Create profile if it doesn't exist
-    if created:
-        Profile.objects.create(user=instance)
-    else:
-        # Update profile if it exists
-        if hasattr(instance, 'profile'):
-            instance.profile.first_name = instance.first_name
-            instance.profile.last_name = instance.last_name
-            instance.profile.phone = instance.phone  # Update phone
-            instance.profile.age = instance.age
-            instance.profile.gender = instance.gender
-            instance.profile.chronic_disease = instance.chronic_disease
-            instance.profile.save()
-            
 ############################################################## [3] Doctor Availability ##########################################################################################################################################################################################
 
 class DoctorAvailability(models.Model):
@@ -299,32 +248,29 @@ class Appointment(models.Model):
 
     def __str__(self):
         return f"Appointment for {self.patient} with Dr. {self.doctor} on {self.date_time.strftime('%Y-%m-%d %H:%M')}"
-############################################################## [5] Activity Feed ##########################################################################################################################################################################################
 
-class ActivityFeed(models.Model):
-    doctor = models.ForeignKey(DoctorsProfileInfo, on_delete=models.CASCADE, null=True, blank=False)
-    msg = models.TextField(blank=False, null=False, default=None)
-    updated = models.DateTimeField(auto_now=True)
-    complete = models.BooleanField(default=False)
-    
-    class Meta:
-        verbose_name = 'Activity Feed'
-    
-    def __str__(self):
-        return str(self.doctor)
-    
-################################################################################################################################################################################################################################################################################################################################
+############################################################################# [Badr's Model] ###################################################################################################################################################################################################################################################
 
 class UserLogin(models.Model):
-    email = models.OneToOneField(User, on_delete=models.CASCADE)
-    password = models.CharField(max_length=14, unique=True)
-    
+    email = models.EmailField()
+    password = models.CharField(max_length=128)
+
     class Meta:
         verbose_name = 'User Login'
+    
+    def clean(self):
+        
+        user = authenticate(email=self.email, password=self.password)
+        if not user:
+            raise ValidationError("Invalid email or password :(")
+    
+    def save(self, *args, **kwargs):
+        
+        self.clean()
+        super().save(*args, **kwargs)
         
     def __str__(self):
         return str(self.email).split('@')[0]
-
     
 #######################################################################################################################################################################################################################################################################################################
 
@@ -335,6 +281,13 @@ class PreviousHistory(models.Model):
         null=True,
         blank=True,
         related_name="messages"
+    )
+    reciever = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="received_messages"
     )
     message = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
@@ -365,3 +318,14 @@ class UploadedPhoto(models.Model):
 
     def __str__(self):
         return f"Photo by {self.uploader.username if self.uploader else 'Anonymous'}"
+        
+#######################################################################################################################################################################################################################################################################################################
+    
+class Alarm(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    pill_name = models.CharField(max_length=100)
+    alarm_time = models.TimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.pill_name} - {self.alarm_time}"

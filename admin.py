@@ -1,7 +1,8 @@
 from django.contrib import admin
+from django import forms
 from .models import (
-    Profile, DoctorsProfileInfo, Appointment, ActivityFeed, 
-    UserLogin, PreviousHistory, UploadedPhoto, DoctorAvailability
+    Profile, DoctorsProfileInfo, Appointment, 
+    UserLogin, PreviousHistory, UploadedPhoto, DoctorAvailability, Alarm
 )
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -89,34 +90,49 @@ admin.site.register(DoctorsProfileInfo, DoctorsProfileInfoAdmin)
 #############################################################################################################
 
 # PreviousHistory Admin
+
+class PreviousHistoryAdminForm(forms.ModelForm):
+    class Meta:
+        model = PreviousHistory
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Filter sender field to show only doctors (staff=True and active=True)
+        self.fields['sender'].queryset = User.objects.filter(admin=False, staff=True, active=True)
+
+        # Filter receiver field to show only patients (admin=False, staff=False, active=True)
+        self.fields['reciever'].queryset = User.objects.filter(admin=False, staff=False, active=True)
+
 class PreviousHistoryAdmin(admin.ModelAdmin):
-    list_display = ['sender', 'message_preview', 'timestamp']
-    search_fields = ['sender__email', 'message']
-    ordering = ['-timestamp']
-
-    def get_form(self, request, obj=None, **kwargs):
-        """
-        Customizes the form for the PreviousHistory model to filter the sender field.
-        """
-        form = super().get_form(request, obj, **kwargs)
-        sender_field = form.base_fields.get('sender')
-        if sender_field:
-            # Filtering only users with doctor permissions => [admin=False, staff=True, active=True]
-            sender_field.queryset = User.objects.filter(admin=False, staff=True, active=True)
-        return form
-
-    def message_preview(self, obj):
-        """
-        Displays a preview of the message content in the admin list view.
-        """
-        return obj.message[:50] if obj.message else ""
-
-    message_preview.short_description = "Message Preview"
+    form = PreviousHistoryAdminForm
+    list_display = ('sender', 'reciever', 'message', 'timestamp')
+    list_filter = ('sender', 'reciever', 'timestamp')  # Optional: Add filters for admin view
+    search_fields = ('sender__email', 'reciever__email', 'message')  # Optional: Add search functionality
 
 admin.site.register(PreviousHistory, PreviousHistoryAdmin)
 
 #############################################################################################################
 
+class AlarmAdminForm(forms.ModelForm):
+    class Meta:
+        model = Alarm
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Filter user field to show [doctors] => (admin=False, staff=True, active=True) & [patients] => (admin=False, staff=False, active=True)
+        self.fields['user'].queryset = User.objects.filter(admin=False, staff=False, active=True) | User.objects.filter(admin=False, staff=True, active=True)
+
+class AlarmAdmin(admin.ModelAdmin):
+    form = AlarmAdminForm
+    list_display = ('user', 'pill_name', 'alarm_time', 'created_at')
+    list_filter = ('user', 'alarm_time', 'created_at')  # Optional: Add filters for admin view
+    search_fields = ('user__email', 'pill_name')  # Optional: Add search functionality
+
+admin.site.register(Alarm, AlarmAdmin)
+
+#############################################################################################################
 # Appointment Admin
 class AppointmentAdmin(admin.ModelAdmin):
     list_display = ['patient', 'available_booking', 'date_time', 'doctor']
@@ -187,5 +203,4 @@ admin.site.register(Profile, ProfileAdmin)
 
 # Register other models
 admin.site.register(UserLogin)
-admin.site.register(ActivityFeed)
-admin.site.register(UploadedPhoto)
+admin.site.register(UploadedPhoto) 
