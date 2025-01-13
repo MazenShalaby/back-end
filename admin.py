@@ -1,8 +1,8 @@
 from django.contrib import admin
 from django import forms
 from .models import (
-    Profile, DoctorsProfileInfo, Appointment, 
-    UserLogin, PreviousHistory, UploadedPhoto, DoctorAvailability, Alarm
+    Profile, DoctorsProfileInfo, Booking_Appointments, 
+    PreviousHistory, UploadedPhoto, DoctorAvailability, Alarm
 )
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -147,14 +147,14 @@ class AppointmentAdmin(admin.ModelAdmin):
             kwargs["queryset"] = User.objects.filter(admin=False, staff=False, active=True)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-admin.site.register(Appointment, AppointmentAdmin)
+admin.site.register(Booking_Appointments, AppointmentAdmin)
 
 #############################################################################################################
 
 # DoctorAvailability Admin
 class DoctorAvailabilityAdmin(admin.ModelAdmin):
-    list_display = ['doctor', 'day', 'start_time', 'end_time', 'availability']
-    list_filter = ['doctor', 'day', 'availability']
+    list_display = ['doctor', 'day', 'start_time', 'end_time',]
+    list_filter = ['doctor', 'day']
     search_fields = ['doctor__doc_first_name', 'doctor__doc_last_name', 'day']
     ordering = ['doctor', 'day', 'start_time']
     list_per_page = 10  # Optional: Controls how many items to display per page
@@ -202,5 +202,4 @@ admin.site.register(Profile, ProfileAdmin)
 #############################################################################################################
 
 # Register other models
-admin.site.register(UserLogin)
 admin.site.register(UploadedPhoto) 

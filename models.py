@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate
 ##################################################################################################################
 class UserManager(BaseUserManager):
-    def create_user(self, email, full_name=None, password=None, is_active=True, is_staff=False, is_admin=False):
+    def create_user(self, email, full_name=None, password=None, is_active=True, is_staff=False, is_admin=False, is_superuser=False):
         if not email:
             raise ValueError("User must have an email address!")
         if not password:
@@ -19,6 +19,7 @@ class UserManager(BaseUserManager):
         user_obj.active = is_active
         user_obj.staff = is_staff
         user_obj.admin = is_admin
+        user_obj.is_superuser = is_superuser
         user_obj.set_password(password)
         user_obj.full_clean()  # Validate fields before saving
         user_obj.save(using=self._db)
@@ -28,7 +29,7 @@ class UserManager(BaseUserManager):
         return self.create_user(email, full_name=full_name, password=password, is_staff=True)
 
     def create_superuser(self, email, full_name=None, password=None):
-        return self.create_user(email, full_name=full_name, password=password, is_staff=True, is_admin=True)
+        return self.create_user(email, full_name=full_name, password=password, is_staff=True, is_admin=True, is_superuser=True)
 
 
 class User(AbstractBaseUser):
@@ -47,9 +48,14 @@ class User(AbstractBaseUser):
         null=True,
     )
 
+    # Custom fields
     active = models.BooleanField(default=True)
     staff = models.BooleanField(default=False)
     admin = models.BooleanField(default=False)
+
+    # Add `is_superuser` field for Django's permission system
+    is_superuser = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -81,10 +87,11 @@ class User(AbstractBaseUser):
 
     def clean(self):
         """
-        [Custom validation to ensure the phone number is unique]
+        Custom validation to ensure the phone number is unique.
         """
         if self.phone and User.objects.exclude(pk=self.pk).filter(phone=self.phone).exists():
             raise ValidationError({"phone": "This phone number is already in use."})
+
 ##################################################################################################################
 
 class Profile(models.Model):
@@ -100,6 +107,8 @@ class Profile(models.Model):
     age = models.PositiveIntegerField(blank=True, null=True)
     gender = models.CharField(max_length=10, choices=[('M', 'Male'), ('F', 'Female')], blank=True, null=True)
     chronic_disease = models.TextField(blank=True, null=True)
+    class Meta:
+        verbose_name = 'Patients Profile'
 
     def __str__(self):
         return str(self.user)
@@ -164,10 +173,9 @@ class DoctorAvailability(models.Model):
     )
     start_time = models.TimeField()
     end_time = models.TimeField()
-    availability = models.BooleanField(default=True)
 
     class Meta:
-        verbose_name = 'Doctor Availability'
+        verbose_name = 'Doctors Appointment'
 
     def __str__(self):
         return f"{self.doctor} - {self.day} ({self.start_time.strftime('%H:%M')} to {self.end_time.strftime('%H:%M')})"
@@ -194,14 +202,14 @@ class DoctorAvailability(models.Model):
         super().save(*args, **kwargs)
 ############################################################## [4] Booking Appointment Section ##########################################################################################################################################################################################
 
-class Appointment(models.Model):
+class Booking_Appointments(models.Model):
     patient = models.ForeignKey(User, on_delete=models.CASCADE)
     available_booking = models.ForeignKey(DoctorAvailability, on_delete=models.CASCADE, null=True, blank=True)
     date_time = models.DateTimeField()
     doctor = models.ForeignKey(DoctorsProfileInfo, on_delete=models.CASCADE)
 
     class Meta:
-        verbose_name = 'Booking Appointment'
+        verbose_name = 'Book An Appointment'
 
     def clean(self):
         """
@@ -220,7 +228,7 @@ class Appointment(models.Model):
             )
 
         # Check for double booking
-        if Appointment.objects.filter(
+        if Booking_Appointments.objects.filter(
             available_booking=availability,
             date_time=self.date_time
         ).exclude(id=self.id).exists():
@@ -249,30 +257,16 @@ class Appointment(models.Model):
     def __str__(self):
         return f"Appointment for {self.patient} with Dr. {self.doctor} on {self.date_time.strftime('%Y-%m-%d %H:%M')}"
 
+################################################################################################################################################################################################################################################################################################################################
+# class Appoinmnets(models.Model):
+    
+#     patient = models.ForeignKey(Profile, on_delete=models.CASCADE)
+#     doctor = models.ForeignKey(DoctorsProfileInfo, on_delete=models.CASCADE)
+#     appoinmnet_date = models.DateTimeField()
+#     appoinmnet_time = models.TimeField()
+    
+    
 ############################################################################# [Badr's Model] ###################################################################################################################################################################################################################################################
-
-class UserLogin(models.Model):
-    email = models.EmailField()
-    password = models.CharField(max_length=128)
-
-    class Meta:
-        verbose_name = 'User Login'
-    
-    def clean(self):
-        
-        user = authenticate(email=self.email, password=self.password)
-        if not user:
-            raise ValidationError("Invalid email or password :(")
-    
-    def save(self, *args, **kwargs):
-        
-        self.clean()
-        super().save(*args, **kwargs)
-        
-    def __str__(self):
-        return str(self.email).split('@')[0]
-    
-#######################################################################################################################################################################################################################################################################################################
 
 class PreviousHistory(models.Model):
     sender = models.ForeignKey(
@@ -329,3 +323,66 @@ class Alarm(models.Model):
 
     def __str__(self):
         return f"{self.pill_name} - {self.alarm_time}"
+    
+######################################################################  [signals]  #################################################################################################################################################################################################################################
+    
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.db import transaction
+from rest_framework.authtoken.models import Token    # [Token Model]
+from django.conf import settings 
+
+########################################################### [1] User Model Signal ###################################################
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def create_or_update_user_profile(sender, instance, created, **kwargs):
+    """
+    Creates or updates the PatientsProfile instance linked to the User, excluding superusers.
+    """
+    if instance.is_superuser:  # Skip superusers
+        return
+
+    if created:
+        Profile.objects.create(
+            user=instance,
+            age=instance.age,
+            gender=instance.gender,
+            chronic_disease=instance.chronic_disease,
+            phone=instance.phone,
+        )
+    else:
+        # Update profile if it exists
+        Profile.objects.update_or_create(
+            user=instance,
+            defaults={
+                'age': instance.age,
+                'gender': instance.gender,
+                'chronic_disease': instance.chronic_disease,
+                'phone': instance.phone,
+            }
+        )
+
+########################################################### [2] Token Signal ########################################################
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def Token_Create_Automation(sender, instance, created, **kwargs):
+    if created:
+        Token.objects.create(user=instance)
+
+########################################################### [3] Patient Profile Signal ##############################################
+
+def create_or_update_user_profile(sender, instance, created, **kwargs):
+    # Create profile if it doesn't exist
+    if created:
+        Profile.objects.create(user=instance)
+    else:
+        # Update profile if it exists
+        if hasattr(instance, 'profile'):
+            instance.profile.first_name = instance.first_name
+            instance.profile.last_name = instance.last_name
+            instance.profile.phone = instance.phone  
+            instance.profile.age = instance.age
+            instance.profile.gender = instance.gender
+            instance.profile.chronic_disease = instance.chronic_disease
+            instance.profile.save()
+            

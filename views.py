@@ -1,6 +1,6 @@
-from .models import User, Profile, DoctorsProfileInfo, Appointment, DoctorAvailability, UserLogin, PreviousHistory, UploadedPhoto, Alarm
+from .models import User, Profile, DoctorsProfileInfo, Booking_Appointments, DoctorAvailability, PreviousHistory, UploadedPhoto, Alarm
 from .serilaizers import  (UserSerializer, ProfileSerializer, DoctorInfoSerializer, AppointmentSerializer, DoctorAvailabilitySerializer,
-LoginSerializer , PreviousHistorySerializer, UploadedPhotoSerializer, AlarmSerializer)
+CustomUserLoginSerializer , PreviousHistorySerializer, UploadedPhotoSerializer, AlarmSerializer)
 
 from rest_framework.authentication import BasicAuthentication
 from rest_framework.permissions import IsAdminUser
@@ -8,10 +8,6 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.parsers import JSONParser
-from django.contrib.auth import authenticate, login  # To handle model validation errors
 
 # Create your views here.
 
@@ -164,7 +160,7 @@ def doctor_details(request, user_id):
 def appointements_list(request):
     
     if request.method == 'GET':
-        appointment = Appointment.objects.all()
+        appointment = Booking_Appointments.objects.all()
         serializer = AppointmentSerializer(appointment, many=True)
         return Response(serializer.data)
     
@@ -183,8 +179,8 @@ def appointements_list(request):
 def appointment_details(request, doctor_id):
     try:
         # Fetch the appointment based on the patient foreign key
-        appointment = Appointment.objects.get(doctor_id=doctor_id)
-    except Appointment.DoesNotExist:
+        appointment = Booking_Appointments.objects.get(doctor_id=doctor_id)
+    except Booking_Appointments.DoesNotExist:
         return Response({"error": "Appointment not found for the given patient ID"}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == "GET":
@@ -255,37 +251,18 @@ def booking_details(request, doctor_id):
         return Response({"message": f"{deleted_count} Bookings(s) deleted successfully!"}, status=status.HTTP_204_NO_CONTENT)
 
 ########################################################################## [Badr's Views] ##################################################################################################################################
-
+########################################################################## [6] Login Api ##################################################################################################################################
+# [6] ==> Login API
 @api_view(['POST'])
-def user_login_api_view(request):
+def custom_user_login(request):
     """
-    API view to authenticate and log in a user.
+    Login API for the custom user model.
     """
-    if request.method == 'POST':
-        
-        serializer = LoginSerializer(data=request.data)
+    serializer = CustomUserLoginSerializer(data=request.data)
+    if serializer.is_valid():
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
-        # Validate the input
-        if serializer.is_valid():
-            email = serializer.validated_data['email']
-            password = serializer.validated_data['password']
-
-            # Check if email exists
-            if not UserLogin.objects.filter(email=email).exists():
-                return Response({'message': 'Email or password does not exist'}, status=status.HTTP_404_NOT_FOUND)
-
-            # Authenticate the user
-            user = authenticate(email=email, password=password)
-            if user:
-                login(request, user)  # Log the user in
-                return Response({'message': 'Login successful :)'}, status=status.HTTP_200_OK)
-            else:
-                return Response({'message': 'Invalid email or password :('}, status=status.HTTP_401_UNAUTHORIZED)
-
-        # Return validation errors
-        return Response({'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
-
-    return Response({'message': 'Invalid request method'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 ####################################################################################################################################################################################################################################################################
 # Previous History(s) List

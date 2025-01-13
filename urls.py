@@ -27,7 +27,7 @@ urlpatterns = [
 
     # Badr's Urls
     # [6] Login Api
-    path('login/', views.user_login_api_view, name='login-user'),
+    path("api/login/", views.custom_user_login, name="custom-user-login"),    
     
     # [7] PreviousHistory
     path('previous-history/',views.previous_history_api_view, name='previous-history'),

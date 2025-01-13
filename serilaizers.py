@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from . models import (User, Profile, DoctorsProfileInfo, Appointment, DoctorAvailability, PreviousHistory, UserLogin, UploadedPhoto, Alarm)
+from . models import (User, Profile, DoctorsProfileInfo, Booking_Appointments, DoctorAvailability, PreviousHistory, UploadedPhoto, Alarm)
 
-
+########################################################################################################################################################################
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -48,12 +48,12 @@ class DoctorInfoSerializer(serializers.ModelSerializer):
 
 class AppointmentSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Appointment
+        model = Booking_Appointments
         fields = '__all__'
 
     def create(self, validated_data):
         # The clean method in the model ensures validation
-        return Appointment.objects.create(**validated_data)
+        return Booking_Appointments.objects.create(**validated_data)
         
 ################################################################################################################################################################
 
@@ -63,12 +63,37 @@ class DoctorAvailabilitySerializer(serializers.ModelSerializer):
         fields = '__all__'
         
 ######################################################################### [Badr's Serializers] #######################################################################################        
+from django.contrib.auth import authenticate
+from rest_framework.exceptions import AuthenticationFailed
 
-class LoginSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserLogin
-        fields = '__all__'
+class CustomUserLoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
 
+    def validate(self, data):
+        email = data.get("email")
+        password = data.get("password")
+
+        # Authenticate user
+        user = authenticate(email=email, password=password)
+
+        if user is None:
+            raise AuthenticationFailed("Invalid email or password.")
+        if not user.is_active:
+            raise AuthenticationFailed("This account is inactive.")
+
+        # Add user-specific data
+        return {
+            "id": user.id,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "phone": user.phone,
+            "age": user.age,
+            "gender": user.gender,
+            "chronic_disease": user.chronic_disease,
+            "token": user.auth_token.key,
+        }
 ###############################################################################
 
 class PreviousHistorySerializer(serializers.ModelSerializer):
