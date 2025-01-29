@@ -134,10 +134,13 @@ admin.site.register(Alarm, AlarmAdmin)
 
 #############################################################################################################
 # Appointment Admin
-class AppointmentAdmin(admin.ModelAdmin):
-    list_display = ['patient', 'available_booking', 'date_time', 'doctor']
-    search_fields = ['patient__email', 'date_time']
-    ordering = ['date_time']
+from django.core.exceptions import ValidationError
+from django.db.models import Q
+
+class BookAppointmentAdmin(admin.ModelAdmin):
+    list_display = ['patient', 'doctor', 'date', 'time', 'available']
+    search_fields = ['patient__email']
+    ordering = ['date', 'time']
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         """
@@ -147,16 +150,32 @@ class AppointmentAdmin(admin.ModelAdmin):
             kwargs["queryset"] = User.objects.filter(admin=False, staff=False, active=True)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-admin.site.register(Booking_Appointments, AppointmentAdmin)
+    def save_model(self, request, obj, form, change):
+        """
+        Prevent double-booking: Ensure no other appointment exists 
+        with the same doctor, date, and time before saving.
+        """
+        if Booking_Appointments.objects.filter(
+            Q(doctor=obj.doctor) & 
+            Q(date=obj.date) & 
+            Q(time=obj.time) & 
+            ~Q(id=obj.id)  # Exclude the current object if updating [blocks double-booking for new appointments but allows updates to existing ones.]
+        ).exists():
+            raise ValidationError("This appointment slot is already booked by another patient.")
+
+        obj.available = False
+        super().save_model(request, obj, form, change)
+
+admin.site.register(Booking_Appointments, BookAppointmentAdmin)
 
 #############################################################################################################
 
 # DoctorAvailability Admin
 class DoctorAvailabilityAdmin(admin.ModelAdmin):
-    list_display = ['doctor', 'day', 'start_time', 'end_time',]
-    list_filter = ['doctor', 'day']
-    search_fields = ['doctor__doc_first_name', 'doctor__doc_last_name', 'day']
-    ordering = ['doctor', 'day', 'start_time']
+    list_display = ['doctor','start_time','end_time']
+    list_filter = ['doctor']
+    search_fields = ['doctor__doc_first_name', 'doctor__doc_last_name']
+    ordering = ['doctor']
     list_per_page = 10  # Optional: Controls how many items to display per page
     
     # Customizing the form to filter doctors based on specific permissions
@@ -175,7 +194,6 @@ class DoctorAvailabilityAdmin(admin.ModelAdmin):
         obj.clean()  # Make sure custom validation is triggered
         super().save_model(request, obj, form, change)
 
-# Register the DoctorAvailability model with the custom admin
 admin.site.register(DoctorAvailability, DoctorAvailabilityAdmin)
 
 #############################################################################################################
@@ -196,10 +214,9 @@ class ProfileAdmin(admin.ModelAdmin):
         # Custom logic can be added here if needed
         super().save_model(request, obj, form, change)
 
-# Register the Profile model with the custom admin
 admin.site.register(Profile, ProfileAdmin)
 
 #############################################################################################################
 
 # Register other models
-admin.site.register(UploadedPhoto) 
+admin.site.register(UploadedPhoto)

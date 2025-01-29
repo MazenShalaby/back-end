@@ -159,113 +159,46 @@ class DoctorsProfileInfo(models.Model):
 
 class DoctorAvailability(models.Model):
     doctor = models.ForeignKey(DoctorsProfileInfo, on_delete=models.CASCADE)
-    day = models.CharField(
-        max_length=10,
-        choices=[
-            ('Sun', 'Sunday'),
-            ('Mon', 'Monday'),
-            ('Tue', 'Tuesday'),
-            ('Wed', 'Wednesday'),
-            ('Thu', 'Thursday'),
-            ('Fri', 'Friday'),
-            ('Sat', 'Saturday'),
-        ]
-    )
-    start_time = models.TimeField()
-    end_time = models.TimeField()
+    department = models.CharField(
+        max_length=100,
+        choices = [
+            ('اخصائي سكر الاطفال','اخصائي سكر الاطفال'),
+            ('اخصائي علاج طبيعي','اخصائي علاج طبيعي'),
+            ('اخصائي امراض القلب','اخصائي امراض القلب'),
+            ]
+        )
+    date = models.DateField(default=None, blank=True, null=True)
+    start_time = models.TimeField(default=None, blank=True, null=True)
+    end_time = models.TimeField(default=None, blank=True, null=True)
 
     class Meta:
-        verbose_name = 'Doctors Appointment'
+        verbose_name = 'Doctors Availabilitie'
 
     def __str__(self):
-        return f"{self.doctor} - {self.day} ({self.start_time.strftime('%H:%M')} to {self.end_time.strftime('%H:%M')})"
+        return f"{self.doctor} ==> {self.date}"
 
-    def clean(self):
-        """
-        Custom validation to ensure the start time is before the end time and no overlap exists.
-        """
-        if self.start_time >= self.end_time:
-            raise ValidationError("The start time must be before the end time.")
-        
-        # Validate overlapping slots for the same doctor and day
-        overlapping_slots = DoctorAvailability.objects.filter(
-            doctor=self.doctor,
-            day=self.day,
-            start_time__lt=self.end_time,
-            end_time__gt=self.start_time
-        ).exclude(id=self.id)
-        if overlapping_slots.exists():
-            raise ValidationError("This time slot overlaps with another availability for this doctor.")
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
-############################################################## [4] Booking Appointment Section ##########################################################################################################################################################################################
+############################################################## [4] Book an Appointment ##########################################################################################################################################################################################
 
 class Booking_Appointments(models.Model):
     patient = models.ForeignKey(User, on_delete=models.CASCADE)
-    available_booking = models.ForeignKey(DoctorAvailability, on_delete=models.CASCADE, null=True, blank=True)
-    date_time = models.DateTimeField()
     doctor = models.ForeignKey(DoctorsProfileInfo, on_delete=models.CASCADE)
+    date = models.DateField(default=None, blank=False, null=False)
+    time = models.TimeField()
+    available = models.BooleanField(default=True)
 
     class Meta:
-        verbose_name = 'Book An Appointment'
-
-    def clean(self):
-        """
-        Ensure the appointment time falls within available hours and isn't double-booked.
-        """
-        if not self.available_booking:
-            raise ValidationError("You must select an available booking.")
-
-        availability = self.available_booking
-
-        # Validate time within available hours
-        if not (availability.start_time <= self.date_time.time() < availability.end_time):
-            raise ValidationError(
-                f"Appointment time must be between {availability.start_time.strftime('%H:%M')} "
-                f"and {availability.end_time.strftime('%H:%M')} on {availability.day}."
-            )
-
-        # Check for double booking
-        if Booking_Appointments.objects.filter(
-            available_booking=availability,
-            date_time=self.date_time
-        ).exclude(id=self.id).exists():
-            raise ValidationError("This time slot is already booked.")
-
-    def save(self, *args, **kwargs):
-        self.clean()
-
-        # Update availability if the slot is booked
-        if self.available_booking.availability:
-            self.available_booking.availability = False
-            self.available_booking.save()
-
-        super().save(*args, **kwargs)
-
-    def delete(self, *args, **kwargs):
-        """
-        Override delete to restore availability when an appointment is canceled.
-        """
-        if self.available_booking:
-            self.available_booking.availability = True
-            self.available_booking.save()
-        
-        super().delete(*args, **kwargs)
+        verbose_name = 'Book an appointment'
 
     def __str__(self):
-        return f"Appointment for {self.patient} with Dr. {self.doctor} on {self.date_time.strftime('%Y-%m-%d %H:%M')}"
+        return f"Appointment for {self.patient} with Dr. {self.doctor} on {self.date} at {self.time}"
 
-################################################################################################################################################################################################################################################################################################################################
-# class Appoinmnets(models.Model):
-    
-#     patient = models.ForeignKey(Profile, on_delete=models.CASCADE)
-#     doctor = models.ForeignKey(DoctorsProfileInfo, on_delete=models.CASCADE)
-#     appoinmnet_date = models.DateTimeField()
-#     appoinmnet_time = models.TimeField()
-    
-    
+    def save(self, *args, **kwargs):
+        # When saving the appointment, set the available field to False
+        if self.available:  # If appointment is available, mark it as unavailable after saving
+            self.available = False
+        super().save(*args, **kwargs)
+
+
 ############################################################################# [Badr's Model] ###################################################################################################################################################################################################################################################
 
 class PreviousHistory(models.Model):
@@ -386,3 +319,5 @@ def create_or_update_user_profile(sender, instance, created, **kwargs):
             instance.profile.chronic_disease = instance.chronic_disease
             instance.profile.save()
             
+            
+#######################################################################################################################################################################################################################################################################################################

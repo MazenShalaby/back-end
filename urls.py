@@ -13,30 +13,34 @@ urlpatterns = [
     # [3] Doctors
     path('doctors-list/', views.doctors_list, name='doctors-list'),
     path('doctors-list/<int:user_id>/', views.doctor_details, name='doctor-details'),
-        
-    # [4] Appointements
-    path('appointments-list/', views.appointements_list, name='appointments-list'),
-    path('appointments-list/<int:doctor_id>/', views.appointment_details, name='appointment-details'),
     
-    # [5] DoctorAvailability
+    # [4] DoctorAvailability
     path('doctorav-list/', views.bookings_list, name='doctorav-list'),
     path('doctorav-list/<int:doctor_id>/', views.booking_details, name='doctorav-details'),
+    
+    # [5] Booking An Appointements
+    path('book-appointments-list/', views.book_appointments_list, name='book_appointements_list'),
+    path('book-appointments-list/<int:doctor_id>/', views.book_appointment_details, name='book_appointment-details'),
+    
+    # [6] Booked-Appointements
+    # path('booked-appointments-list/', views.booked_appointements_list, name='booked-appointments-list'),
+    # path('booked-appointments-list/<int:patient_id>/', views.booked_appointment_details, name='booked-appointment-details'),
     
     # Rest auth url
     path('rest-auth', include('rest_framework.urls')),
 
     # Badr's Urls
-    # [6] Login Api
+    # [7] Login Api
     path("api/login/", views.custom_user_login, name="custom-user-login"),    
     
-    # [7] PreviousHistory
+    # [8] PreviousHistory
     path('previous-history/',views.previous_history_api_view, name='previous-history'),
     path('previous-history/<int:sender_id>/',views.previous_history_api_view_details, name='previous-history-details'),
     
-    # [8] Photo Upload
+    # [9] Photo Upload
     path('photo-upload/',views.PhotoUploadAPI.as_view(), name='photo_upload'),   # Postponed
     
-    # [9] Alarm
+    # [10] Alarm
     path('alarm/',views.AlarmAPIView.as_view(), name='alarm'),
 
 ]

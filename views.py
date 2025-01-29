@@ -152,56 +152,7 @@ def doctor_details(request, user_id):
         doctor.delete()
         return Response({"message": "Doctor profile deleted successfully!"})
     
-############################################################## [4] Appointments ##############################################################
-# [4.1] ==>  Appointment(s) List
-@api_view(['GET', 'POST'])
-@authentication_classes([BasicAuthentication])
-@permission_classes([IsAdminUser])
-def appointements_list(request):
-    
-    if request.method == 'GET':
-        appointment = Booking_Appointments.objects.all()
-        serializer = AppointmentSerializer(appointment, many=True)
-        return Response(serializer.data)
-    
-    elif request.method == 'POST':
-        serializer = AppointmentSerializer(data = request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({"message": "An appointment has been added successfully :) "}, status= status.HTTP_201_CREATED)
-        
-    return Response({"message": "Something went wrong to delete :( "}, status=status.HTTP_400_BAD_REQUEST)
-
-# [4.2] ==> Specific Appointment Details
-@api_view(['GET', 'PUT', 'DELETE'])
-@authentication_classes([BasicAuthentication])
-@permission_classes([IsAdminUser])
-def appointment_details(request, doctor_id):
-    try:
-        # Fetch the appointment based on the patient foreign key
-        appointment = Booking_Appointments.objects.get(doctor_id=doctor_id)
-    except Booking_Appointments.DoesNotExist:
-        return Response({"error": "Appointment not found for the given patient ID"}, status=status.HTTP_404_NOT_FOUND)
-
-    if request.method == "GET":
-        # Retrieve appointment details
-        serializer = AppointmentSerializer(appointment)
-        return Response(serializer.data)
-
-    elif request.method == "PUT":
-        # Update the appointment details
-        serializer = AppointmentSerializer(appointment, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    elif request.method == "DELETE":
-        # Delete the appointment
-        appointment.delete()
-        return Response({"message": "Appointment deleted successfully!"}, status=status.HTTP_204_NO_CONTENT)
-
-############################################################## [5] Doctor Availability ##############################################################
+############################################################## [4] Doctor Availability ##############################################################
 # [5.1] ==>  Doctor Availability(s) List
 @api_view(['GET', 'POST'])
 @authentication_classes([BasicAuthentication])
@@ -250,8 +201,120 @@ def booking_details(request, doctor_id):
         deleted_count, _ = booking.delete()
         return Response({"message": f"{deleted_count} Bookings(s) deleted successfully!"}, status=status.HTTP_204_NO_CONTENT)
 
+############################################################## [5] Booking An Appointments ##############################################################
+# [4.1] ==>  Appointment(s) List
+@api_view(['GET', 'POST', 'DELETE'])
+@authentication_classes([BasicAuthentication])
+@permission_classes([IsAdminUser])
+def book_appointments_list(request):
+    """
+    - GET: Retrieve all appointments.
+    - POST: Create a new appointment, ensuring no duplicate bookings for the same doctor, date, and time.
+    - DELETE: Delete all appointments.
+    """
+    if request.method == 'GET':
+        appointments = Booking_Appointments.objects.all()
+        serializer = AppointmentSerializer(appointments, many=True)
+        return Response(serializer.data)
+
+    elif request.method == 'POST':
+        serializer = AppointmentSerializer(data=request.data)
+        if serializer.is_valid():
+            doctor = serializer.validated_data['doctor']
+            date = serializer.validated_data['date']
+            time = serializer.validated_data['time']
+
+            # Check if the appointment slot is already booked by another patient
+            if Booking_Appointments.objects.filter(doctor=doctor, date=date, time=time, available=False).exists():
+                return Response(
+                    {"error": "This appointment slot is already booked by another patient."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Save the new appointment
+            appointment = serializer.save()
+
+            # Ensure the appointment is marked as unavailable
+            appointment.available = False
+            appointment.save(update_fields=['available'])
+
+            return Response(
+                {"message": "An appointment has been booked successfully!", "data": serializer.data}, 
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        # Delete all appointments
+        Booking_Appointments.objects.all().delete()
+        return Response({"message": "All appointments have been deleted successfully!"}, status=status.HTTP_204_NO_CONTENT)
+
+
+
+# [4.2] ==> Specific Appointment Details
+@api_view(['GET', 'PUT', 'DELETE'])
+@authentication_classes([BasicAuthentication])
+@permission_classes([IsAdminUser])
+def book_appointment_details(request, doctor_id):
+    try:
+        # Fetch the appointment based on the patient foreign key
+        appointment = Booking_Appointments.objects.get(doctor_id=doctor_id)
+    except Booking_Appointments.DoesNotExist:
+        return Response({"error": "Appointment not found for the given patient ID"}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == "GET":
+        # Retrieve appointment details
+        serializer = AppointmentSerializer(appointment)
+        return Response(serializer.data)
+
+    elif request.method == "PUT":
+        # Update the appointment details
+        serializer = AppointmentSerializer(appointment, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == "DELETE":
+        # Delete the appointment
+        appointment.delete()
+        return Response({"message": "Appointment deleted successfully!"}, status=status.HTTP_204_NO_CONTENT)
+
+# ############################################################## [6] Booked Appointments ##############################################################
+# @api_view(['GET'])
+# @authentication_classes([BasicAuthentication])
+# @permission_classes([IsAdminUser])
+# def booked_appointements_list(request):
+    
+#     booked = BookedAppointment.objects.all()
+    
+#     if request.method == "GET":
+#         serializers = BookedAppointmentSerializer(booked, many=True)
+#         return Response(serializers.data)
+    
+# @api_view(['GET', 'DELETE'])
+# @authentication_classes([BasicAuthentication])
+# @permission_classes([IsAdminUser])
+# def booked_appointment_details(request, patient_id):
+#     try:
+#         # Fetch the appointment based on the patient foreign key
+#         booked = BookedAppointment.objects.get(patient_id=patient_id)
+#     except BookedAppointment.DoesNotExist:
+#         return Response({"error": "Appointment not found for the given patient ID"}, status=status.HTTP_404_NOT_FOUND)
+
+#     if request.method == "GET":
+#         # Retrieve appointment details
+#         serializer = BookedAppointmentSerializer(booked)
+#         return Response(serializer.data)
+    
+#     elif request.method == "DELETE":
+#         # Delete the appointment
+#         booked.delete()
+#         return Response({"message": "Appointment deleted successfully!"}, status=status.HTTP_204_NO_CONTENT)
+
 ########################################################################## [Badr's Views] ##################################################################################################################################
-########################################################################## [6] Login Api ##################################################################################################################################
+########################################################################## [7] Login Api ##################################################################################################################################
 # [6] ==> Login API
 @api_view(['POST'])
 def custom_user_login(request):
