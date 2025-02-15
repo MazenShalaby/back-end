@@ -3,8 +3,8 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.conf import settings
 from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
-from django.contrib.auth import authenticate
 ##################################################################################################################
+
 class UserManager(BaseUserManager):
     def create_user(self, email, full_name=None, password=None, is_active=True, is_staff=False, is_admin=False, is_superuser=False):
         if not email:
@@ -31,7 +31,6 @@ class UserManager(BaseUserManager):
     def create_superuser(self, email, full_name=None, password=None):
         return self.create_user(email, full_name=full_name, password=password, is_staff=True, is_admin=True, is_superuser=True)
 
-
 class User(AbstractBaseUser):
     email = models.EmailField(max_length=255, unique=True)
     first_name = models.CharField(max_length=255, blank=True, null=True)
@@ -47,15 +46,14 @@ class User(AbstractBaseUser):
         blank=True,
         null=True,
     )
+    profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
 
     # Custom fields
     active = models.BooleanField(default=True)
     staff = models.BooleanField(default=False)
     admin = models.BooleanField(default=False)
-
-    # Add `is_superuser` field for Django's permission system
     is_superuser = models.BooleanField(default=False)
-
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -107,6 +105,8 @@ class Profile(models.Model):
     age = models.PositiveIntegerField(blank=True, null=True)
     gender = models.CharField(max_length=10, choices=[('M', 'Male'), ('F', 'Female')], blank=True, null=True)
     chronic_disease = models.TextField(blank=True, null=True)
+    profile_picture = models.ImageField(blank=True, null=True)
+
     class Meta:
         verbose_name = 'Patients Profile'
 
@@ -216,8 +216,8 @@ class PreviousHistory(models.Model):
         blank=True,
         related_name="received_messages"
     )
-    message = models.TextField()
-    timestamp = models.DateTimeField(auto_now_add=True)
+    message = models.TextField(max_length=100, blank=False, null=False)
+    timestamp = models.TimeField(blank=True, null=True, auto_now_add=True)
 
     def __str__(self):
         return f"{self.sender.email if self.sender else 'Anonymous'}: {self.message[:20]}"
@@ -237,14 +237,14 @@ class PreviousHistory(models.Model):
 
 class UploadedPhoto(models.Model):
     uploader = models.ForeignKey(User, on_delete=models.SET_NULL, null=True,)
-    photo = models.ImageField(upload_to="uploaded_photos/")
+    photo = models.ImageField(upload_to="uploaded_photos/", default=None)
     timestamp = models.DateTimeField(auto_now_add=True)
     
     class Meta:
         verbose_name = 'Uploaded Photo'
 
     def __str__(self):
-        return f"Photo by {self.uploader.username if self.uploader else 'Anonymous'}"
+        return f"Photo by {self.uploader if self.uploader else 'Anonymous'}"
         
 #######################################################################################################################################################################################################################################################################################################
     
@@ -253,6 +253,7 @@ class Alarm(models.Model):
     pill_name = models.CharField(max_length=100)
     alarm_time = models.TimeField()
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.pill_name} - {self.alarm_time}"
@@ -261,7 +262,6 @@ class Alarm(models.Model):
     
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.db import transaction
 from rest_framework.authtoken.models import Token    # [Token Model]
 from django.conf import settings 
 
@@ -304,20 +304,41 @@ def Token_Create_Automation(sender, instance, created, **kwargs):
 
 ########################################################### [3] Patient Profile Signal ##############################################
 
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from .models import User, Profile
+
+@receiver(post_save, sender=User)
 def create_or_update_user_profile(sender, instance, created, **kwargs):
-    # Create profile if it doesn't exist
-    if created:
-        Profile.objects.create(user=instance)
+    # Exclude superusers, admins, and doctors (staff members)
+    if not instance.is_superuser and not instance.is_admin and not instance.is_staff:
+        if created:
+            # Create a profile only if it doesn't already exist
+            Profile.objects.get_or_create(
+                user=instance,
+                defaults={
+                    'first_name': instance.first_name,
+                    'last_name': instance.last_name,
+                    'phone': instance.phone,
+                    'age': instance.age,
+                    'gender': instance.gender,
+                    'chronic_disease': instance.chronic_disease,
+                    'profile_picture': instance.profile_picture  # Copy profile picture from User to Profile
+                }
+            )
+        else:
+            # Update profile if it exists
+            if hasattr(instance, 'profile'):
+                instance.profile.first_name = instance.first_name
+                instance.profile.last_name = instance.last_name
+                instance.profile.phone = instance.phone  
+                instance.profile.age = instance.age
+                instance.profile.gender = instance.gender
+                instance.profile.chronic_disease = instance.chronic_disease
+                instance.profile.profile_picture = instance.profile_picture  # Update profile picture
+                instance.profile.save()
     else:
-        # Update profile if it exists
+        # If the user is a superuser, admin, or doctor, delete their profile if it exists
         if hasattr(instance, 'profile'):
-            instance.profile.first_name = instance.first_name
-            instance.profile.last_name = instance.last_name
-            instance.profile.phone = instance.phone  
-            instance.profile.age = instance.age
-            instance.profile.gender = instance.gender
-            instance.profile.chronic_disease = instance.chronic_disease
-            instance.profile.save()
-            
-            
+            instance.profile.delete()
 #######################################################################################################################################################################################################################################################################################################

@@ -16,15 +16,17 @@ class UserAdmin(BaseUserAdmin):
     form = UserAdminChangeForm
     add_form = UserAdminCreationForm
 
-    list_display = ['email', 'created_at', 'last_login', 'admin', 'active', 'staff', 'phone']
+    # Include 'profile_picture' in the list_display
+    list_display = ['email', 'created_at', 'last_login', 'admin', 'active', 'staff', 'phone', 'profile_picture']
     list_filter = ['active', 'staff', 'admin']
     search_fields = ['email', 'full_name', 'phone']
     ordering = ['email']
 
+    # Include 'profile_picture' in the fieldsets
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
         ('Personal info', {
-            'fields': ('first_name', 'last_name', 'age', 'gender', 'chronic_disease', 'phone')
+            'fields': ('first_name', 'last_name', 'age', 'gender', 'chronic_disease', 'phone', 'profile_picture')
         }),
         ('Permissions', {'fields': ('active', 'staff', 'admin')}),
     )
@@ -34,7 +36,7 @@ class UserAdmin(BaseUserAdmin):
             'classes': ('wide',),
             'fields': (
                 'email', 'password1', 'password2',
-                'first_name', 'last_name', 'age', 'gender', 'chronic_disease', 'phone'
+                'first_name', 'last_name', 'age', 'gender', 'chronic_disease', 'phone', 'profile_picture'
             ),
         }),
     )
@@ -47,8 +49,8 @@ class UserAdmin(BaseUserAdmin):
         """
         super().save_model(request, obj, form, change)
 
-        # Create or update Profile
-        if obj.active and not obj.admin and not obj.staff:
+        # Create or update Profile for non-admin, non-staff users (patients)
+        if obj.active and not obj.is_admin and not obj.is_staff:
             profile, created = Profile.objects.get_or_create(user=obj)
             profile.first_name = obj.first_name
             profile.last_name = obj.last_name
@@ -57,10 +59,9 @@ class UserAdmin(BaseUserAdmin):
             profile.gender = obj.gender
             profile.chronic_disease = obj.chronic_disease
             profile.save()
-
-        # Delete Profile if user is promoted
-        elif obj.admin or obj.staff:
-            if hasattr(obj, 'profile'):
+        else:
+            # Delete Profile if user is promoted to admin or staff
+            if hasattr(obj, 'profile') and obj.profile.id is not None:  # Check if profile exists
                 obj.profile.delete()
 
 # Register the custom UserAdmin
@@ -121,8 +122,8 @@ class AlarmAdminForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Filter user field to show [doctors] => (admin=False, staff=True, active=True) & [patients] => (admin=False, staff=False, active=True)
-        self.fields['user'].queryset = User.objects.filter(admin=False, staff=False, active=True) | User.objects.filter(admin=False, staff=True, active=True)
+        # Filter user field to show [patients] => (admin=False, staff=True, active=True) & [patients] => (admin=False, staff=False, active=True)
+        self.fields['user'].queryset = User.objects.filter(admin=False, staff=False, active=True)
 
 class AlarmAdmin(admin.ModelAdmin):
     form = AlarmAdminForm
@@ -218,5 +219,23 @@ admin.site.register(Profile, ProfileAdmin)
 
 #############################################################################################################
 
+class PhotoUploaderAdminForm(forms.ModelForm):
+    class Meta:
+        model = UploadedPhoto
+        fields = '__all__'
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Filter uploader field to show only doctors and patients (admin=False, staff=True , active=True) => doctor or (admin=False, staff=False, active=True) => patient
+        self.fields['uploader'].queryset = User.objects.filter(admin=False, staff=True, active=True) | User.objects.filter(admin=False, staff=False, active=True)
+        
+        
+class PhotoUploaderAdmin(admin.ModelAdmin):
+    
+    form = PhotoUploaderAdminForm
+    list_display = ['uploader', 'timestamp']
+    list_filter = ['timestamp']  # Optional: Add filters for admin view
+    search_fields = ['timestamp']  # Optional: Add search functionality
+        
 # Register other models
-admin.site.register(UploadedPhoto)
+admin.site.register(UploadedPhoto, PhotoUploaderAdmin)
