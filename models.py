@@ -47,14 +47,6 @@ class User(AbstractBaseUser):
         null=True,
     )
     profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
-    cancer_type = models.CharField(max_length=100,
-                            choices = [
-                                    ('Skin Cancer','Skin Cancer'),
-                                    ('Lung Cancer','Lung Cancer'),
-                                    ('Colon Cancer','Colon Cancer'),
-                                    ('Leukemia Cancer','Leukemia Cancer')], blank=True, null=True)
-    cancer_photo = models.ImageField(upload_to='cancer_photos/', blank=True, null=True)
-    cancer_precentage = models.PositiveIntegerField(blank=True, null=True)
 
     # Custom fields
     active = models.BooleanField(default=True)
@@ -102,7 +94,6 @@ class User(AbstractBaseUser):
 
 class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    full_name = models.CharField(max_length=255, blank=True, null=True)
     first_name = models.CharField(max_length=255, blank=True, null=True)
     last_name = models.CharField(max_length=255, blank=True, null=True)
     phone = models.CharField(
@@ -176,11 +167,9 @@ class DoctorAvailability(models.Model):
             ('اخصائي امراض القلب','اخصائي امراض القلب'),
             ]
         )
-    date = models.DateField(default=None, blank=False, null=False)  # date
-    start_time = models.TimeField(default=None, blank=False, null=False) # start time 
-    end_time = models.TimeField(default=None, blank=False, null=False)   # end time
-    created_at = models.DateTimeField(blank=True, null=True, auto_now_add=True)   
-    updated_at = models.DateTimeField(blank=True, null=True, auto_now=True)  
+    date = models.DateField(default=None, blank=True, null=True)
+    start_time = models.TimeField(default=None, blank=True, null=True)
+    end_time = models.TimeField(default=None, blank=True, null=True)
 
     class Meta:
         verbose_name = 'Doctors Availabilitie'
@@ -193,14 +182,12 @@ class DoctorAvailability(models.Model):
 class Booking_Appointments(models.Model):
     patient = models.ForeignKey(User, on_delete=models.CASCADE)
     doctor = models.ForeignKey(DoctorsProfileInfo, on_delete=models.CASCADE)
-    date = models.DateField(default=None, blank=False, null=False)   # date
-    time = models.TimeField(default=None, blank=False, null=True)   # time
-    created_at = models.DateTimeField(blank=True, null=True, auto_now_add=True)   
-    updated_at = models.DateTimeField(blank=True, null=True, auto_now=True)       
+    date = models.DateField(default=None, blank=False, null=False)
+    time = models.TimeField()
     available = models.BooleanField(default=True)
 
     class Meta:
-        verbose_name = 'Book an Appointment'
+        verbose_name = 'Book an appointment'
 
     def __str__(self):
         return f"Appointment for {self.patient} with Dr. {self.doctor} on {self.date} at {self.time}"
@@ -217,24 +204,20 @@ class Booking_Appointments(models.Model):
 class PreviousHistory(models.Model):
     sender = models.ForeignKey(
         User,
-        on_delete=models.CASCADE,
-        null=False,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
         related_name="messages"
     )
     reciever = models.ForeignKey(
         User,
-        on_delete=models.CASCADE,
-        null=False,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
         related_name="received_messages"
     )
-    message = models.TextField(max_length=100, blank=False, null=True)
-    date = models.DateField(blank=False, null=False, auto_now_add=True)  # date
-    time = models.TimeField(blank=False, null=True, auto_now=True)      # time
-    img = models.ImageField(blank=True, null=True, upload_to="previous-histoty/images/")
-    created_at = models.DateTimeField(blank=True, null=True, auto_now_add=True)   
-    updated_at = models.DateTimeField(blank=True, null=True, auto_now=True)  
+    message = models.TextField(max_length=100, blank=False, null=False)
+    timestamp = models.TimeField(blank=True, null=True, auto_now_add=True)
 
     def __str__(self):
         return f"{self.sender.email if self.sender else 'Anonymous'}: {self.message[:20]}"
@@ -253,12 +236,12 @@ class PreviousHistory(models.Model):
 #######################################################################################################################################################################################################################################################################################################
 
 class UploadedPhoto(models.Model):
-    uploader = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=False)
-    photo = models.ImageField(upload_to="uploaded_photos/", default=None, null=True, blank=False)
-    created_at = models.DateTimeField(blank=True, null=True, auto_now_add=True)   
-    updated_at = models.DateTimeField(blank=True, null=True, auto_now=True)        
+    uploader = models.ForeignKey(User, on_delete=models.SET_NULL, null=True,)
+    photo = models.ImageField(upload_to="uploaded_photos/", default=None)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
     class Meta:
-        verbose_name = 'Upload Photo'
+        verbose_name = 'Uploaded Photo'
 
     def __str__(self):
         return f"Photo by {self.uploader if self.uploader else 'Anonymous'}"
@@ -267,15 +250,14 @@ class UploadedPhoto(models.Model):
     
 class Alarm(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    pill_name = models.CharField(max_length=100, default=None, blank=False, null=True)
-    alarm_time = models.TimeField(default=None, blank=False, null=False)  # set alarm time
-    created_at = models.DateField(auto_now_add=True)
-    updated_at = models.TimeField(auto_now=True)
+    pill_name = models.CharField(max_length=100)
+    alarm_time = models.TimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.pill_name} - {self.alarm_time}"
     
-
 ######################################################################  [signals]  #################################################################################################################################################################################################################################
     
 from django.db.models.signals import post_save
@@ -335,7 +317,6 @@ def create_or_update_user_profile(sender, instance, created, **kwargs):
             Profile.objects.get_or_create(
                 user=instance,
                 defaults={
-                    'full_name': instance.full_name,
                     'first_name': instance.first_name,
                     'last_name': instance.last_name,
                     'phone': instance.phone,
@@ -348,7 +329,6 @@ def create_or_update_user_profile(sender, instance, created, **kwargs):
         else:
             # Update profile if it exists
             if hasattr(instance, 'profile'):
-                instance.profile.full_name = instance.full_name
                 instance.profile.first_name = instance.first_name
                 instance.profile.last_name = instance.last_name
                 instance.profile.phone = instance.phone  
