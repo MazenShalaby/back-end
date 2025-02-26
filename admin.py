@@ -16,27 +16,30 @@ class UserAdmin(BaseUserAdmin):
     form = UserAdminChangeForm
     add_form = UserAdminCreationForm
 
-    # Include 'profile_picture' in the list_display
-    list_display = ['email', 'created_at', 'last_login', 'admin', 'active', 'staff', 'phone', 'profile_picture']
+    list_display = ['email', 'created_at', 'last_login', 'admin', 'staff', 'active', 'phone', 'cancer_type', 'cancer_precentage']
     list_filter = ['active', 'staff', 'admin']
     search_fields = ['email', 'full_name', 'phone']
     ordering = ['email']
 
-    # Include 'profile_picture' in the fieldsets
     fieldsets = (
-        (None, {'fields': ('email', 'password')}),
-        ('Personal info', {
-            'fields': ('first_name', 'last_name', 'age', 'gender', 'chronic_disease', 'phone', 'profile_picture')
+        ('Authentication', {'fields': ('email', 'password')}),
+        
+        ('Personal Information', {
+            'fields': ('full_name', 'first_name', 'last_name', 'phone', 'age', 'gender', 'chronic_disease')
         }),
+        
+        ('Cancer Information', {
+            'fields': ('cancer_type', 'cancer_photo', 'cancer_precentage')}),
+        
         ('Permissions', {'fields': ('active', 'staff', 'admin')}),
     )
 
     add_fieldsets = (
-        (None, {
+        ('Registeration', {
             'classes': ('wide',),
             'fields': (
                 'email', 'password1', 'password2',
-                'first_name', 'last_name', 'age', 'gender', 'chronic_disease', 'phone', 'profile_picture'
+                'full_name', 'first_name', 'last_name', 'age', 'gender', 'chronic_disease', 'phone', 'profile_picture'
             ),
         }),
     )
@@ -107,8 +110,8 @@ class PreviousHistoryAdminForm(forms.ModelForm):
 
 class PreviousHistoryAdmin(admin.ModelAdmin):
     form = PreviousHistoryAdminForm
-    list_display = ('sender', 'reciever', 'message', 'timestamp')
-    list_filter = ('sender', 'reciever', 'timestamp')  # Optional: Add filters for admin view
+    list_display = ('sender', 'reciever', 'message', 'date', 'time')
+    list_filter = ('sender', 'reciever', 'date', 'time')  # Optional: Add filters for admin view
     search_fields = ('sender__email', 'reciever__email', 'message')  # Optional: Add search functionality
 
 admin.site.register(PreviousHistory, PreviousHistoryAdmin)
@@ -233,9 +236,9 @@ class PhotoUploaderAdminForm(forms.ModelForm):
 class PhotoUploaderAdmin(admin.ModelAdmin):
     
     form = PhotoUploaderAdminForm
-    list_display = ['uploader', 'timestamp']
-    list_filter = ['timestamp']  # Optional: Add filters for admin view
-    search_fields = ['timestamp']  # Optional: Add search functionality
+    list_display = ['uploader', 'created_at', 'updated_at']
+    list_filter = ['created_at']  # Optional: Add filters for admin view
+    search_fields = ['uploader']  # Optional: Add search functionality
         
 # Register other models
 admin.site.register(UploadedPhoto, PhotoUploaderAdmin)

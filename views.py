@@ -3,9 +3,8 @@ from .serializers import  (UserSerializer, ProfileSerializer, DoctorInfoSerializ
 CustomUserLoginSerializer , PreviousHistorySerializer, UploadedPhotoSerializer, AlarmSerializer)
 
 from rest_framework.authentication import BasicAuthentication
-from rest_framework.permissions import IsAdminUser, IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
@@ -17,8 +16,8 @@ from rest_framework import status
 
 # [1.1] ==> User(s) List
 @api_view(['GET', 'POST'])
-@authentication_classes([BasicAuthentication])
-@permission_classes([IsAuthenticated])
+# @authentication_classes([BasicAuthentication])
+# @permission_classes([IsAuthenticated])
 def users_list(request):
     
     if request.method == 'GET':
@@ -40,8 +39,8 @@ def users_list(request):
 
 # [1.2] ==> Specific User Details
 @api_view(['GET', 'PUT', 'DELETE'])
-@authentication_classes([BasicAuthentication])
-@permission_classes([IsAuthenticated])
+# @authentication_classes([BasicAuthentication])
+# @permission_classes([IsAuthenticated])
 def user_details(request, pk):
     
     try:
@@ -87,8 +86,8 @@ def patients_list(request):
 
 # [2.1] ==> Specific User Details 
 @api_view(['GET', 'PUT', 'DELETE'])
-@authentication_classes([BasicAuthentication])
-@permission_classes([IsAuthenticated])
+# @authentication_classes([BasicAuthentication])
+# @permission_classes([IsAuthenticated])
 def patient_details(request, user_id):
     
     try:
@@ -118,8 +117,8 @@ def patient_details(request, user_id):
 
 # [3.1] ==> Doctor(s) List 
 @api_view(['GET'])
-@authentication_classes([BasicAuthentication])
-@permission_classes([IsAuthenticated])
+# @authentication_classes([BasicAuthentication])
+# @permission_classes([IsAuthenticated])
 def doctors_list(request):
     
     if request.method == 'GET':
@@ -129,8 +128,8 @@ def doctors_list(request):
     
 # [3.1] ==>  Specific Doctor Details 
 @api_view(['GET', 'PUT', 'DELETE'])
-@authentication_classes([BasicAuthentication])
-@permission_classes([IsAuthenticated])
+# @authentication_classes([BasicAuthentication])
+# @permission_classes([IsAuthenticated])
 def doctor_details(request, user_id):
     
     try:
@@ -161,8 +160,8 @@ def doctor_details(request, user_id):
 
 # [4.1] ==>  Doctor Availability(s) List
 @api_view(['GET', 'POST'])
-@authentication_classes([BasicAuthentication])
-@permission_classes([IsAuthenticated])
+# @authentication_classes([BasicAuthentication])
+# @permission_classes([IsAuthenticated])
 def bookings_list(request):
     
     if request.method == 'GET':
@@ -180,8 +179,8 @@ def bookings_list(request):
     
 # [4.2] ==>  Specific Doctor Availability Details 
 @api_view(['GET', 'PUT', 'DELETE'])
-@authentication_classes([BasicAuthentication])
-@permission_classes([IsAuthenticated])
+# @authentication_classes([BasicAuthentication])
+# @permission_classes([IsAuthenticated])
 def booking_details(request, doctor_id):
     
     try:
@@ -212,14 +211,14 @@ def booking_details(request, doctor_id):
 
 # [5.1] ==>  Appointment(s) List
 @api_view(['GET', 'POST', 'DELETE'])
-@authentication_classes([BasicAuthentication])
-@permission_classes([IsAuthenticated])
+# @authentication_classes([BasicAuthentication])
+# @permission_classes([IsAuthenticated])
 def book_appointments_list(request):
     """
-    - GET: Retrieve all appointments.
-    - POST: Create a new appointment, ensuring no duplicate bookings for the same doctor, date, and time.
-    - DELETE: Delete all appointments.
-    - You can fetch all appointments assciated with doctor via (book-appointments-list/doctor_id/)
+    - GET : Retrieve all appointments.
+    - POST : Create a new appointment, ensuring no duplicate bookings for the same doctor, date, and time.
+    - DELETE : Delete all appointments.
+    - You can fetch all appointments associated with doctor via (book-appointments-list/doctor_id/)
     """
     if request.method == 'GET':
         appointments = Booking_Appointments.objects.all()
@@ -261,8 +260,8 @@ def book_appointments_list(request):
 
 # [5.2] ==> Specific Appointment Details asscoiated with (doctor_id) 
 @api_view(['GET', 'PUT', 'DELETE'])
-@authentication_classes([BasicAuthentication])
-@permission_classes([IsAuthenticated])
+# @authentication_classes([BasicAuthentication])
+# @permission_classes([IsAuthenticated])
 def book_appointment_details(request, doctor_id):
     
     try:
@@ -296,8 +295,8 @@ def book_appointment_details(request, doctor_id):
 
 # [6.1] ==> Login API
 @api_view(['POST'])
-@authentication_classes([BasicAuthentication])
-@permission_classes([IsAuthenticated])
+# @authentication_classes([BasicAuthentication])
+# @permission_classes([IsAuthenticated])
 def custom_user_login(request):
     """
     Login API for the Custom User Model.
@@ -312,8 +311,8 @@ def custom_user_login(request):
 
 # [7.1] ==> Previous History(ies) List
 @api_view(['GET', 'POST'])
-@authentication_classes([BasicAuthentication])
-@permission_classes([IsAuthenticated])
+# @authentication_classes([BasicAuthentication])
+# @permission_classes([IsAuthenticated])
 def previous_history_api_view(request):
     
     if request.method == 'GET':
@@ -331,41 +330,52 @@ def previous_history_api_view(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 # [7.2] ==> Previous History Details
+from django.shortcuts import get_object_or_404
+
 @api_view(['GET', 'PUT', 'DELETE'])
-@authentication_classes([BasicAuthentication])
-@permission_classes([IsAuthenticated])
-def previous_history_api_view_details(request, sender_id):
+# @authentication_classes([BasicAuthentication])
+# @permission_classes([IsAuthenticated])
+def previous_history_api_view_details(request, sender_id, pk=None):
     
     try:
-        # Fetch all Previous History associated with the given doctor
+        # Fetch all Alarm(s) associated with the given user
         previous = PreviousHistory.objects.filter(sender_id=sender_id)
         if not previous.exists():
-            return Response({"error": "No Previous History found for the given doctor ID"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "No Alarm(s) found for the given user ID"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # If pk is provided, get the specific previous-history from specific user's previous-history(ies) list
+        if pk:
+            specific_previous_history = get_object_or_404(PreviousHistory, sender_id=sender_id, id=pk)
+            
     except ValueError:
-        return Response({"error": "Invalid doctor ID"}, status=status.HTTP_400_BAD_REQUEST)
-
-    if request.method == "GET":
-        # Retrieve all Activity Feeds for the doctor
-        serializer = PreviousHistorySerializer(previous, many=True)
-        return Response(serializer.data)
-
-    elif request.method == "PUT":
-        return Response(
-            {"error": "Cannot update multiple Previous History(s) at once. Update a specific Booking by its ID."},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    elif request.method == "DELETE":
-        # Delete all Previous History(s) for the doctor
-        deleted_count, _ = previous.delete()
-        return Response({"message": f"{deleted_count} Bookings(s) deleted successfully!"}, status=status.HTTP_204_NO_CONTENT)
+        return Response({"error": "Invalid user ID or Alarm ID :("}, status=status.HTTP_400_BAD_REQUEST)
     
+
+    if request.method == 'GET':
+        if pk:
+            serializer = PreviousHistorySerializer(specific_previous_history)  # Return specific previous history
+        else:
+            serializer = PreviousHistorySerializer(previous, many=True)  # Return all user previous histories
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    elif request.method == 'PUT' and pk:
+        serializer = PreviousHistorySerializer(specific_previous_history, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Previous history Updated Successfully :)", "data": serializer.data}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE' and pk:
+        specific_previous_history.delete()
+        return Response({"message": "Previous History Deleted Successfully !"}, status=status.HTTP_204_NO_CONTENT)
+
+    return Response({"error": "Can't update or delete all previous history(ies) at the same time :("}, status=status.HTTP_400_BAD_REQUEST)    
 ########################################################################## [8] Upload-Photo(s) Api ##################################################################################################################################
 
 # [8.1] ==> Upload-Photo(s) List
 @api_view(['GET', 'POST', 'DELETE'])
-@authentication_classes([BasicAuthentication])
-@permission_classes([IsAuthenticated])
+# @authentication_classes([BasicAuthentication])
+# @permission_classes([IsAuthenticated])
 def upload_photo_api_view_list(request):
     
     upload = UploadedPhoto.objects.all().order_by('id')
@@ -412,8 +422,8 @@ def upload_photo_api_view_list(request):
     
 # [8.2] ==> Upload-Photo(s) Details
 @api_view(['GET', 'DELETE'])
-@authentication_classes([BasicAuthentication])
-@permission_classes([IsAuthenticated])
+# @authentication_classes([BasicAuthentication])
+# @permission_classes([IsAuthenticated])
 def upload_photo_api_view_details(request, uploader_id):
     
     try:
@@ -435,8 +445,8 @@ def upload_photo_api_view_details(request, uploader_id):
 
 # [9.1] ==> Alarm List(s) List
 @api_view(['GET', 'POST', 'DELETE'])
-@authentication_classes([BasicAuthentication])
-@permission_classes([IsAuthenticated])
+# @authentication_classes([BasicAuthentication])
+# @permission_classes([IsAuthenticated])
 def alram_api_view_list(request):
     
     alarm = Alarm.objects.all().order_by('id')
@@ -484,11 +494,12 @@ def alram_api_view_list(request):
 from django.shortcuts import get_object_or_404
 
 @api_view(['GET', 'PUT', 'DELETE'])
-@authentication_classes([BasicAuthentication])
-@permission_classes([IsAuthenticated])
+# @authentication_classes([BasicAuthentication])
+# @permission_classes([IsAuthenticated])
 def alarm_api_view_details(request, user_id, pk=None):
     
     try:
+        # Fetch all Alarm(s) associated with the given user
         user_alarms = Alarm.objects.filter(user_id=user_id)
         if not user_alarms.exists():
             return Response({"error": "No Alarm(s) found for the given user ID"}, status=status.HTTP_404_NOT_FOUND)
@@ -516,6 +527,6 @@ def alarm_api_view_details(request, user_id, pk=None):
 
     elif request.method == 'DELETE' and pk:
         specific_alarm.delete()
-        return Response({"message": "Alarm Deleted Successfully!"}, status=status.HTTP_204_NO_CONTENT)
+        return Response({"message": "Alarm Deleted Successfully !"}, status=status.HTTP_204_NO_CONTENT)
 
-    return Response({"error": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({"error": "Can't update or delete all alarms at the same time :("}, status=status.HTTP_400_BAD_REQUEST)
