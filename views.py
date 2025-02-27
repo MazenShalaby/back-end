@@ -159,13 +159,13 @@ def doctor_details(request, user_id):
 ############################################################## [4] Doctor Availability ##############################################################
 
 # [4.1] ==>  Doctor Availability(s) List
-@api_view(['GET', 'POST'])
+@api_view(['GET', 'POST', 'DELETE'])
 # @authentication_classes([BasicAuthentication])
 # @permission_classes([IsAuthenticated])
 def bookings_list(request):
     
+    appointment = DoctorAvailability.objects.all()
     if request.method == 'GET':
-        appointment = DoctorAvailability.objects.all()
         serializer = DoctorAvailabilitySerializer(appointment, many=True)
         return Response(serializer.data)
     
@@ -174,8 +174,10 @@ def bookings_list(request):
         if serializer.is_valid():
             serializer.save()
             return Response({"message": "Booking has been added successfully :) "}, status= status.HTTP_201_CREATED)
-        
-    return Response({"message": "Something went wrong to delete :( "}, status=status.HTTP_400_BAD_REQUEST)
+    elif request.method == 'DELETE':
+        appointment.delete()
+        return Response({"message": "All Bookings(s) deleted successfully!"}, status=status.HTTP_204_NO_CONTENT)
+    return Response({"message": "Can't add same data entry :( "}, status=status.HTTP_400_BAD_REQUEST)
     
 # [4.2] ==>  Specific Doctor Availability Details 
 @api_view(['GET', 'PUT', 'DELETE'])

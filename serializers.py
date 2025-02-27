@@ -93,6 +93,8 @@ class CustomUserLoginSerializer(serializers.Serializer):
             "gender": user.gender,
             "chronic_disease": user.chronic_disease,
             "token": user.auth_token.key,
+            "staff": user.is_staff,
+            "active": user.is_active
         }
 ###############################################################################
 

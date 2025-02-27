@@ -143,7 +143,7 @@ class DoctorsProfileInfo(models.Model):
     clinic_address = models.TextField(blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
     img = models.ImageField(upload_to='doc-imgs/', blank=True, null=True)
-
+    available = models.BooleanField(default=True, blank = True, null=False)
     class Meta:
         verbose_name = 'Doctors Profile'
 
@@ -184,9 +184,15 @@ class DoctorAvailability(models.Model):
 
     class Meta:
         verbose_name = 'Doctors Availabilitie'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['doctor', 'date'],
+                name='unique_doctor_availability'
+            )
+        ]
 
     def __str__(self):
-        return f"{self.doctor} ==> {self.date}"
+        return f"{self.doctor} => {self.date}"
 
 ############################################################## [4] Book an Appointment ##########################################################################################################################################################################################
 
