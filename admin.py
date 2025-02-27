@@ -16,7 +16,7 @@ class UserAdmin(BaseUserAdmin):
     form = UserAdminChangeForm
     add_form = UserAdminCreationForm
 
-    list_display = ['email', 'created_at', 'last_login', 'admin', 'staff', 'active', 'phone', 'cancer_type', 'cancer_precentage']
+    list_display = ['email', 'created_at', 'last_login', 'admin', 'staff', 'active', 'phone', 'cancer_type', 'cancer_percentage']
     list_filter = ['active', 'staff', 'admin']
     search_fields = ['email', 'full_name', 'phone']
     ordering = ['email']
@@ -29,7 +29,7 @@ class UserAdmin(BaseUserAdmin):
         }),
         
         ('Cancer Information', {
-            'fields': ('cancer_type', 'cancer_photo', 'cancer_precentage')}),
+            'fields': ('cancer_type', 'cancer_photo', 'cancer_percentage')}),
         
         ('Permissions', {'fields': ('active', 'staff', 'admin')}),
     )

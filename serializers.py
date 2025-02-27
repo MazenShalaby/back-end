@@ -89,12 +89,16 @@ class CustomUserLoginSerializer(serializers.Serializer):
             "first_name": user.first_name,
             "last_name": user.last_name,
             "phone": user.phone,
+            "profile_picture": user.profile_picture.url if user.profile_picture else None ,
             "age": user.age,
             "gender": user.gender,
             "chronic_disease": user.chronic_disease,
             "token": user.auth_token.key,
             "staff": user.is_staff,
-            "active": user.is_active
+            "active": user.is_active,
+            "cancer_type": user.cancer_type,
+            "cancer_photo": user.cancer_photo.url if user.cancer_photo else None,
+            "cancer_percentage": user.cancer_percentage,
         }
 ###############################################################################
 

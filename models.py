@@ -54,7 +54,7 @@ class User(AbstractBaseUser):
                                     ('Colon Cancer','Colon Cancer'),
                                     ('Leukemia Cancer','Leukemia Cancer')], blank=True, null=True)
     cancer_photo = models.ImageField(upload_to='cancer_photos/', blank=True, null=True)
-    cancer_precentage = models.PositiveIntegerField(blank=True, null=True)
+    cancer_percentage = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
 
     # Custom fields
     active = models.BooleanField(default=True)
