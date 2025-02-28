@@ -264,33 +264,41 @@ def book_appointments_list(request):
 @api_view(['GET', 'PUT', 'DELETE'])
 # @authentication_classes([BasicAuthentication])
 # @permission_classes([IsAuthenticated])
-def book_appointment_details(request, doctor_id):
+def book_appointment_details(request, doctor_id, pk=None):
     
     try:
-        # Fetch all appointments for the doctor
-        appointments = Booking_Appointments.objects.filter(doctor_id=doctor_id)
-        if not appointments.exists():
-            return Response({"error": "No appointments found for the given doctor ID"}, status=status.HTTP_404_NOT_FOUND)
+        # Fetch all Appointment(s) associated with the given doctor
+        book = Booking_Appointments.objects.filter(doctor_id=doctor_id)
+        if not book.exists():
+            return Response({"error": "No Appointment(s) found for the given doctor ID"}, status=status.HTTP_404_NOT_FOUND)
         
-        if request.method == 'GET':
-            serializer = AppointmentSerializer(appointments, many=True)
-            return Response(serializer.data)
+        # If pk is provided, get the specific book from specific doctor's appintment list
+        if pk:
+            specific_book = get_object_or_404(Booking_Appointments, doctor_id=doctor_id, id=pk)
         
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except ValueError:
+        return Response({"error": "Invalid doctor ID or appointment ID :("}, status=status.HTTP_400_BAD_REQUEST)
 
-    if request.method == "PUT":
-        # Update the appointment details
-        serializer = AppointmentSerializer(appointments, data=request.data)
+    if request.method == 'GET':
+        if pk:
+            serializer = AppointmentSerializer(specific_book)  # Return specific alarm
+        else:
+            serializer = AppointmentSerializer(book, many=True)  # Return all user alarms
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    elif request.method == 'PUT' and pk:
+        serializer = AppointmentSerializer(specific_book, data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)
+            return Response({"message": "Appointment Updated Successfully :)", "data": serializer.data}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    elif request.method == "DELETE":
-        # Delete the appointment
-        appointments.delete()
-        return Response({"message": "Appointment deleted successfully!"}, status=status.HTTP_204_NO_CONTENT)
+    elif request.method == 'DELETE' and pk:
+        specific_book.delete()
+        return Response({"message": "Appointment Deleted Successfully !"}, status=status.HTTP_204_NO_CONTENT)
+
+    return Response({"error": "Can't update or delete all Appointments at the same time :("}, status=status.HTTP_400_BAD_REQUEST)
+
 
 ########################################################################## [Badr's Views] ##################################################################################################################################
 ########################################################################## [6] Login Api ##################################################################################################################################

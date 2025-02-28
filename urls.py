@@ -21,9 +21,8 @@ urlpatterns = [
     # [5] Booking An Appointements
     path('book-appointments-list/', views.book_appointments_list, name='book_appointements_list'),
     path('book-appointments-list/<int:doctor_id>/', views.book_appointment_details, name='book_appointment-details'),
+    path('book-appointments-list/<int:doctor_id>/<int:pk>/', views.book_appointment_details, name='book_appointment-details'),
         
-
-
     # Badr's Urls
     # [7] Login Api
     path("api/login/", views.custom_user_login, name="custom-user-login"),    
@@ -39,7 +38,7 @@ urlpatterns = [
     
     # [10] Alarm
     path('alarm/', views.alram_api_view_list, name='alarm-list'),  # List all alarms or create new (GET, POST) Methods
-    path('alarm/<int:user_id>/', views.alarm_api_view_details, name='user-alarms'),  # Get all alarms for a specific user (GET) Methods
-    path('alarm/<int:user_id>/<int:pk>/', views.alarm_api_view_details, name='alarm-details'),  # Updating specific alarm's content (PUT) Method !
+    path('alarm/<int:user_id>/', views.alarm_api_view_details, name='user-alarms'),  # Get all alarms for a specific user (GET)
+    path('alarm/<int:user_id>/<int:pk>/', views.alarm_api_view_details, name='alarm-details'),  # Updating (PUT) or Deleteing (DELETE) specific alarm ! 
     
 ]

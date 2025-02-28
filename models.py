@@ -219,42 +219,27 @@ class Booking_Appointments(models.Model):
 
 
 ############################################################################# [Badr's Model] ###################################################################################################################################################################################################################################################
+from django.contrib.postgres.fields import ArrayField
 
 class PreviousHistory(models.Model):
     sender = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        null=False,
-        blank=True,
-        related_name="messages"
+        User, on_delete=models.CASCADE, null=False, blank=True, related_name="messages"
     )
-    reciever = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        null=False,
-        blank=True,
-        related_name="received_messages"
+    receiver = models.ForeignKey(
+        User, on_delete=models.CASCADE, null=False, blank=True, related_name="received_messages"
     )
     message = models.TextField(max_length=100, blank=False, null=True)
-    date = models.DateField(blank=False, null=False, auto_now_add=True)  # date
-    time = models.TimeField(blank=False, null=True, auto_now=True)      # time
-    img = models.ImageField(blank=True, null=True, upload_to="previous-histoty/images/")
+    date = models.DateField(blank=False, null=False, auto_now_add=True)
+    time = models.TimeField(blank=False, null=True, auto_now=True)
+    
+    # Store multiple image URLs in an array
+    images = ArrayField(models.CharField(max_length=255), blank=True, null=True)
+
     created_at = models.DateTimeField(blank=True, null=True, auto_now_add=True)   
     updated_at = models.DateTimeField(blank=True, null=True, auto_now=True)  
 
     def __str__(self):
         return f"{self.sender.email if self.sender else 'Anonymous'}: {self.message[:20]}"
-
-    def clean(self):
-        """
-        Custom validation to ensure that the sender is an active staff member (doctor).
-        """
-        if self.sender:  # Check if the sender is not null
-            if not (self.sender.staff and self.sender.active):
-                raise ValidationError("The sender must be an active staff member (doctor).")
-
-    class Meta:
-        verbose_name_plural = "Previous Histories"
 
 #######################################################################################################################################################################################################################################################################################################
 

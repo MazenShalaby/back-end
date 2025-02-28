@@ -106,12 +106,12 @@ class PreviousHistoryAdminForm(forms.ModelForm):
         self.fields['sender'].queryset = User.objects.filter(admin=False, staff=True, active=True)
 
         # Filter receiver field to show only patients (admin=False, staff=False, active=True)
-        self.fields['reciever'].queryset = User.objects.filter(admin=False, staff=False, active=True)
+        self.fields['receiver'].queryset = User.objects.filter(admin=False, staff=False, active=True)
 
 class PreviousHistoryAdmin(admin.ModelAdmin):
     form = PreviousHistoryAdminForm
-    list_display = ('sender', 'reciever', 'message', 'date', 'time')
-    list_filter = ('sender', 'reciever', 'date', 'time')  # Optional: Add filters for admin view
+    list_display = ('sender', 'receiver', 'message', 'date', 'time')
+    list_filter = ('sender', 'receiver', 'date', 'time')  # Optional: Add filters for admin view
     search_fields = ('sender__email', 'reciever__email', 'message')  # Optional: Add search functionality
 
 admin.site.register(PreviousHistory, PreviousHistoryAdmin)
