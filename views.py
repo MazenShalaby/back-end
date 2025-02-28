@@ -195,7 +195,7 @@ def booking_details(request, doctor_id):
 
     if request.method == "GET":
         # Retrieve all Activity Feeds for the doctor
-        serializer = DoctorAvailabilitySerializer(booking, many=False)
+        serializer = DoctorAvailabilitySerializer(booking, many=True)
         return Response(serializer.data)
 
     elif request.method == "PUT":
