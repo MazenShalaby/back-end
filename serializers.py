@@ -112,7 +112,7 @@ class PreviousHistorySerializer(serializers.ModelSerializer):
 class UploadedPhotoSerializer(serializers.ModelSerializer):
     class Meta:
         model = UploadedPhoto
-        fields = ['id', 'uploader', 'photo', 'timestamp']
+        fields = '__all__'
         
 ###############################################################################
 

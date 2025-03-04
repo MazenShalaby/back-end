@@ -223,14 +223,14 @@ from django.contrib.postgres.fields import ArrayField
 
 class PreviousHistory(models.Model):
     sender = models.ForeignKey(
-        User, on_delete=models.CASCADE, null=False, blank=True, related_name="messages"
+        User, on_delete=models.CASCADE, null=False, blank=True, related_name="messages", default=None
     )
     receiver = models.ForeignKey(
-        User, on_delete=models.CASCADE, null=False, blank=True, related_name="received_messages"
+        User, on_delete=models.CASCADE, null=False, blank=True, related_name="received_messages", default=None
     )
     message = models.TextField(max_length=100, blank=False, null=True)
-    date = models.DateField(blank=False, null=False, auto_now_add=True)
-    time = models.TimeField(blank=False, null=True, auto_now=True)
+    date = models.DateField(blank=False, null=False, default=None)
+    time = models.TimeField(blank=False, null=True)
     
     # Store multiple image URLs in an array
     images = ArrayField(models.CharField(max_length=255), blank=True, null=True)
@@ -248,7 +248,7 @@ class UploadedPhoto(models.Model):
     photo = models.ImageField(upload_to="uploaded_photos/", default=None, null=True, blank=False)
     submitted_date = models.DateField(blank=False, null=True, default=None)   
     confidence_score = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
-    created_at = models.DateTimeField(blank=True, null=True, auto_now_add=True)   
+    timestamp = models.DateTimeField(blank=True, null=True, auto_now_add=True)   
     updated_at = models.DateTimeField(blank=True, null=True, auto_now=True)
          
     class Meta:
@@ -256,7 +256,6 @@ class UploadedPhoto(models.Model):
 
     def __str__(self):
         return f"Photo by {self.uploader if self.uploader else 'Anonymous'}"
-        
         
 #######################################################################################################################################################################################################################################################################################################
     
