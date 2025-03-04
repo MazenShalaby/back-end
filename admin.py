@@ -236,8 +236,8 @@ class PhotoUploaderAdminForm(forms.ModelForm):
 class PhotoUploaderAdmin(admin.ModelAdmin):
     
     form = PhotoUploaderAdminForm
-    list_display = ['uploader','submitted_date', 'confidence_score',  'created_at', 'updated_at']
-    list_filter = ['created_at']  # Optional: Add filters for admin view
+    list_display = ['uploader','submitted_date', 'confidence_score',  'timestamp', 'updated_at']
+    list_filter = ['timestamp']  # Optional: Add filters for admin view
     search_fields = ['uploader']  # Optional: Add search functionality
         
 # Register other models
