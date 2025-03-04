@@ -246,13 +246,17 @@ class PreviousHistory(models.Model):
 class UploadedPhoto(models.Model):
     uploader = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=False)
     photo = models.ImageField(upload_to="uploaded_photos/", default=None, null=True, blank=False)
+    submitted_date = models.DateField(blank=False, null=True, default=None)   
+    confidence_score = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
     created_at = models.DateTimeField(blank=True, null=True, auto_now_add=True)   
-    updated_at = models.DateTimeField(blank=True, null=True, auto_now=True)        
+    updated_at = models.DateTimeField(blank=True, null=True, auto_now=True)
+         
     class Meta:
         verbose_name = 'Upload Photo'
 
     def __str__(self):
         return f"Photo by {self.uploader if self.uploader else 'Anonymous'}"
+        
         
 #######################################################################################################################################################################################################################################################################################################
     
